@@ -8,7 +8,7 @@ import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
-import { collection, getDocs, query, orderBy, doc, setDoc, getDoc, where, addDoc } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, doc, setDoc, getDoc, where, addDoc, increment } from 'firebase/firestore';
 import { signInAnonymously, onAuthStateChanged, User } from 'firebase/auth';
 import { useAPIStatus } from '@/context/APIStatusContext';
 
@@ -153,11 +153,18 @@ export default function LearningInterface({ initialLevel = 1, learningStyle = 'T
                 if (data.quiz && data.quiz.length > 0) {
                     setWelcomeMessage("");
 
+                    // SELECT CONTENT BASED ON LEARNING STYLE
+                    let selectedContent = data.content; // fallback
+                    if (learningStyle === 'VISUAL' && data.contentVisual) selectedContent = data.contentVisual;
+                    else if (learningStyle === 'AUDITORY' && data.contentAuditory) selectedContent = data.contentAuditory;
+                    else if (learningStyle === 'KINESTHETIC' && data.contentKinesthetic) selectedContent = data.contentKinesthetic;
+                    else if (data.contentVisual) selectedContent = data.contentVisual; // Default to Visual if unknown
+
                     const staticFragment: Fragment = {
                         id: `static-${level}`,
                         title: `Materi Lumi Level ${level}`,
-                        text: data.explanation,
-                        content: data.explanation,
+                        text: selectedContent,
+                        content: selectedContent,
                         type: 'text',
                         order: 1
                     };
@@ -166,7 +173,7 @@ export default function LearningInterface({ initialLevel = 1, learningStyle = 'T
                     setLoading(false);
 
                     if (learningStyle === 'AUDITORY') {
-                        setTimeout(() => handleSpeak(data.explanation.substring(0, 200) + "..."), 1000);
+                        setTimeout(() => handleSpeak(selectedContent.substring(0, 300) + "..."), 1000);
                     }
                     return;
                 }
@@ -435,14 +442,28 @@ $$ \\text{Sukses} = \\text{Usaha} + \\text{Konsistensi} $$
     const handleSubmitSentiment = async () => {
         setIsEvaluating(true);
         try {
-            const passedLocally = score / quizzes.length > 0.6;
+            const passedLocally = score / quizzes.length >= 0.8;
             const res = await fetch('/api/evaluate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ score, totalQuestions: quizzes.length, sentiment, learningStyle, topic })
             });
 
-            if (res.status === 429) reportError();
+            if (res.status === 429) {
+                // Rate limit fallback
+                const passed = score / quizzes.length >= 0.8;
+                setEvaluation({
+                    decision: passed ? 'NEXT_LEVEL' : 'REPEAT',
+                    message: passed
+                        ? `Luar biasa! Skor ${score}/${quizzes.length}. Lumi bangga padamu! 💙`
+                        : "Jangan menyerah! Coba pelajari lagi bagian yang salah ya.",
+                    emotion: sentiment
+                });
+                setPhase('RESULT');
+                setIsEvaluating(false);
+                return;
+            }
+
             if (!res.ok) throw new Error("API Busy");
 
             const result: EvaluationResult = await res.json();
@@ -451,25 +472,43 @@ $$ \\text{Sukses} = \\text{Usaha} + \\text{Konsistensi} $$
 
             if (user) {
                 addDoc(collection(db, 'users', user.uid, 'sessions'), {
-                    timestamp: new Date(), score, total: quizzes.length,
-                    decision: result.decision, sentiment, emotion: result.emotion || 'Unknown',
-                    learningStyle, level: level
+                    timestamp: new Date(),
+                    score,
+                    total: quizzes.length,
+                    decision: passedLocally ? 'NEXT_LEVEL' : 'REPEAT', // Use local decision for consistency
+                    sentiment,
+                    emotion: result.emotion || sentiment, // Use local sentiment if API matches
+                    learningStyle,
+                    level: level,
+                    xp: passedLocally ? 100 * level : 10 // Award XP
                 }).catch(e => console.warn("Session log failed", e));
-                if (result.decision === 'NEXT_LEVEL') {
+
+                if (passedLocally) {
                     const nextLevelValue = level + 1;
+                    addDoc(collection(db, 'users', user.uid, 'achievements'), {
+                        title: `Lulus Level ${level}`,
+                        date: new Date(),
+                        type: 'LEVEL_UP'
+                    }).catch(e => console.error(e));
+
                     setLevel(nextLevelValue);
-                    setDoc(doc(db, 'users', user.uid), { mathLevel: nextLevelValue }, { merge: true }).catch(console.error);
+                    setDoc(doc(db, 'users', user.uid), {
+                        mathLevel: nextLevelValue,
+                        totalXp: increment(100 * level) // Firestore Increment
+                    }, { merge: true }).catch(console.error);
                 }
             }
         } catch (err) {
             console.error(err);
-            const passed = score / quizzes.length > 0.7;
+            const passed = score / quizzes.length >= 0.8;
             setEvaluation({
                 decision: passed ? 'NEXT_LEVEL' : 'REPEAT',
-                message: passed ? "Hebat! Nilaimu sangat bagus." : "Tetap semangat! Coba pelajari lagi.",
-                emotion: 'Neutral'
+                message: passed ? "Hebat! Nilaimu sangat bagus. Lumi bangga!" : "Tetap semangat! Coba pelajari lagi.",
+                emotion: sentiment || 'Neutral'
             });
             setPhase('RESULT');
+
+            // Still save progress on error
             if (user && passed) {
                 const nextLevelValue = level + 1;
                 setLevel(nextLevelValue);
@@ -543,8 +582,27 @@ $$ \\text{Sukses} = \\text{Usaha} + \\text{Konsistensi} $$
             {/* PHASE: LEARNING */}
             {phase === 'LEARNING' && fragments.length > 0 && (
                 <div className="p-8 sm:p-12 flex-1 flex flex-col">
-                    {/* 1. Main Material Title (Safe Render) */}
-                    <div className="mb-8 select-none">
+                    {/* 1. Main Material Title (Safe Render) + Speaker */}
+                    <div className="mb-8 select-none relative group">
+                        <div className="absolute -left-12 top-0 hidden sm:flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                                onClick={() => handleSpeak(fragments[currentIndex].text)}
+                                className="bg-blue-100 text-blue-600 p-3 rounded-full hover:bg-blue-200 transition-colors shadow-sm"
+                                title="Baca Materi"
+                            >
+                                🔊
+                            </button>
+                        </div>
+
+                        {/* Mobile Speaker Button (Visible on top-right) */}
+                        <button
+                            onClick={() => handleSpeak(fragments[currentIndex].text)}
+                            className="absolute right-0 top-0 sm:hidden bg-blue-50 text-blue-600 p-2 rounded-full hover:bg-blue-100"
+                            title="Baca Materi"
+                        >
+                            🔊
+                        </button>
+
                         <ReactMarkdown
                             remarkPlugins={[remarkMath, remarkGfm]}
                             rehypePlugins={[[rehypeKatex, { strict: false }]]}
@@ -799,13 +857,32 @@ $$ \\text{Sukses} = \\text{Usaha} + \\text{Konsistensi} $$
             {
                 phase === 'QUIZ' && quizzes.length > 0 && (
                     <div className="p-8 sm:p-12 flex-1 flex flex-col">
-                        <div className="mb-6 flex justify-between items-end">
-                            <span className="text-5xl font-black text-slate-200">Q{currentQuizIndex + 1}</span>
-                            <span className="text-slate-400 font-bold text-sm uppercase">Total {quizzes.length} Soal</span>
+                        <div className="mb-6 flex justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-100">
+                            <div>
+                                <span className="text-4xl font-black text-slate-300 mr-3">Q{currentQuizIndex + 1}</span>
+                                <span className="text-slate-400 font-bold text-xs uppercase tracking-widest">
+                                    Total {quizzes.length}
+                                </span>
+                            </div>
+                            <button
+                                onClick={() => handleSpeak(quizzes[currentQuizIndex].question)}
+                                className="bg-white text-blue-600 p-3 rounded-full hover:bg-blue-50 border-2 border-slate-100 transition-all shadow-sm hover:scale-110 active:scale-95"
+                                title="Bacakan Soal"
+                            >
+                                🔊
+                            </button>
                         </div>
 
-                        <h3 className="text-xl sm:text-2xl font-bold text-[#0f172a] mb-8 leading-snug">
-                            {quizzes[currentQuizIndex].question}
+                        <h3 className="text-xl sm:text-2xl font-bold text-[#0f172a] mb-8 leading-relaxed">
+                            <ReactMarkdown
+                                remarkPlugins={[remarkMath, remarkGfm]}
+                                rehypePlugins={[[rehypeKatex, { strict: false }]]}
+                                components={{
+                                    p: ({ node, ...props }: any) => <span {...props} />
+                                }}
+                            >
+                                {quizzes[currentQuizIndex].question}
+                            </ReactMarkdown>
                         </h3>
 
                         <div className="space-y-4 mb-4 flex-1">

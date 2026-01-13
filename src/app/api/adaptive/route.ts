@@ -155,6 +155,10 @@ export async function POST(req: Request) {
 
         return NextResponse.json({
             explanation: staticContent.explanation,
+            content: levelData.content,
+            contentVisual: levelData.contentVisual,
+            contentAuditory: levelData.contentAuditory,
+            contentKinesthetic: levelData.contentKinesthetic,
             quiz: levelData.quiz, // Return the structured quiz directly
             isOffline: false // Treat as valid online content
         });

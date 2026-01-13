@@ -531,22 +531,39 @@ export default function DashboardPage() {
                                     // Unlock Logic: Previous topic must be >= Level 3 (simplified) or Open Access
                                     const isLocked = false; // Decoupled progress means all open, or implement specific logic
 
+                                    const currentLevel = topicLevels[topic.id] || 1;
+                                    const isMastered = currentLevel > 5;
+
                                     return (
                                         <button
                                             key={topic.id}
                                             disabled={isLocked}
                                             onClick={() => !isLocked && handleTopicClick(topic.id)}
-                                            className="group bg-white p-6 rounded-[2rem] border border-slate-50 shadow-[0_10px_30px_rgba(0,0,0,0.02)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.05)] transition-all hover:-translate-y-2 flex flex-col items-center text-center"
+                                            className={`group bg-white p-6 rounded-[2rem] border shadow-[0_10px_30px_rgba(0,0,0,0.02)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.05)] transition-all hover:-translate-y-2 flex flex-col items-center text-center relative overflow-hidden
+                                                ${isMastered ? 'border-emerald-200 bg-emerald-50/30' : 'border-slate-50'}
+                                            `}
                                         >
+                                            {isMastered && (
+                                                <div className="absolute top-0 right-0 bg-emerald-500 text-white text-[8px] font-black uppercase px-2 py-1 rounded-bl-xl">
+                                                    LULUS
+                                                </div>
+                                            )}
                                             <div className="w-14 h-14 rounded-full bg-slate-50 flex items-center justify-center text-2xl mb-4 group-hover:scale-110 transition-transform">
                                                 {topic.icon}
                                             </div>
-                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 group-hover:text-blue-500 transition-colors">
+                                            <span className={`text-[10px] font-black uppercase tracking-widest mb-1 group-hover:text-blue-500 transition-colors ${isMastered ? 'text-emerald-600' : 'text-slate-400'}`}>
                                                 {topic.name}
                                             </span>
-                                            <div className="w-12 h-1 bg-slate-100 rounded-full mt-3 overflow-hidden">
-                                                <div className="h-full bg-blue-500 rounded-full" style={{ width: `${prog}%` }}></div>
-                                            </div>
+
+                                            {isMastered ? (
+                                                <div className="mt-3 text-xs font-bold text-emerald-600 flex items-center gap-1">
+                                                    MASTERED 🏆
+                                                </div>
+                                            ) : (
+                                                <div className="w-12 h-1 bg-slate-100 rounded-full mt-3 overflow-hidden">
+                                                    <div className="h-full bg-blue-500 rounded-full" style={{ width: `${prog}%` }}></div>
+                                                </div>
+                                            )}
                                         </button>
                                     )
                                 })}
