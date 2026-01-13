@@ -21,6 +21,7 @@ export default function DashboardPage() {
     const [view, setView] = useState<'DASHBOARD' | 'TOPIC_MASTER' | 'LEARNING' | 'VAULT' | 'STATS' | 'PROFILE'>('DASHBOARD');
 
     const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
+    const [playLevel, setPlayLevel] = useState(1); // Track specific level being played
     const [loading, setLoading] = useState(true);
     const [user, setUser] = useState<any>(null);
     const [profile, setProfile] = useState<any>(null);
@@ -224,6 +225,7 @@ export default function DashboardPage() {
         setPendingTopic(id);
         const currentLevel = topicLevels[id] || 1;
         setPendingLevel(currentLevel);
+        setPlayLevel(currentLevel); // Default to max progress for "Resume" behavior
         setShowStyleModal(true);
     }
 
@@ -333,8 +335,15 @@ export default function DashboardPage() {
                     <LearningInterface
                         learningStyle={sessionStyle} // Pass Selected Style
                         topic={selectedTopic}
-                        initialLevel={topicLevels[selectedTopic] || 1}
-                        onSessionComplete={async (result) => {
+                        initialLevel={playLevel} // Use correct PLAY LEVEL
+                        onSessionComplete={async (result: any) => {
+                            // Update playLevel immediately for seamless transition
+                            if (result.success && result.decision === 'NEXT_LEVEL') {
+                                setPlayLevel(result.nextLevel);
+                            } else if (result.decision === 'REPEAT') {
+                                // Keep same level
+                            }
+
                             if (result.success && result.nextLevel > 5) {
                                 if (user) {
                                     await setDoc(doc(db, 'users', user.uid, 'achievements', `mastery_${selectedTopic}`), {
@@ -357,7 +366,17 @@ export default function DashboardPage() {
                                     }
                                 }
                                 setShowAIHelp(false);
-                                setView('TOPIC_MASTER');
+
+                                // HANDLE TOPIC SWITCH (e.g. Aljabar -> Geometri)
+                                if (result.action === 'SWITCH_TOPIC' && result.target) {
+                                    setSelectedTopic(result.target);
+                                    // Reset View to LEARNING to start new topic immediately? Or TOPIC_MASTER?
+                                    // User asked for "Navigasi Next Topic".
+                                    // Let's go to TOPIC_MASTER of the new topic to let them choose level 1.
+                                    setView('TOPIC_MASTER');
+                                } else {
+                                    setView('TOPIC_MASTER');
+                                }
                             }
                             if (!result.success && result.emotion && ['Fear', 'Surprise', 'Sad', 'Disgust'].includes(result.emotion)) {
                                 setShowAIHelp(true);
@@ -378,6 +397,7 @@ export default function DashboardPage() {
                 showAIHelp={showAIHelp}
                 onStartLevel={(level) => {
                     setPendingLevel(level);
+                    setPlayLevel(level); // FIX: Ensure we play the SELECTED level
                     setView('LEARNING');
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}

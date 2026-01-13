@@ -11,6 +11,7 @@ import 'katex/dist/katex.min.css';
 import { collection, getDocs, query, orderBy, doc, setDoc, getDoc, where, addDoc, increment } from 'firebase/firestore';
 import { signInAnonymously, onAuthStateChanged, User } from 'firebase/auth';
 import { useAPIStatus } from '@/context/APIStatusContext';
+import { ALJABAR_CURRICULUM } from '@/lib/curriculumData';
 
 // Types
 type Phase = 'LEARNING' | 'QUIZ' | 'SENTIMENT' | 'RESULT';
@@ -32,7 +33,7 @@ interface QuizItem {
 }
 
 interface EvaluationResult {
-    decision: "NEXT_LEVEL" | "REPEAT" | "EASIER_CONTENT";
+    decision: "NEXT_LEVEL" | "REPEAT" | "EASIER_CONTENT" | "NEXT_TOPIC";
     message: string;
     emotion?: string;
     confidenceScore?: number;
@@ -42,8 +43,9 @@ interface LearningInterfaceProps {
     initialLevel?: number;
     learningStyle?: string;
     topic?: string;
-    onSessionComplete?: (result: { success: boolean, nextLevel: number, emotion?: string, decision?: string }) => void;
+    onSessionComplete?: (result: { success: boolean, nextLevel: number, emotion?: string, decision?: string, action?: string, target?: string }) => void;
 }
+
 
 export default function LearningInterface({ initialLevel = 1, learningStyle = 'TEXT', topic = 'Aljabar', onSessionComplete }: LearningInterfaceProps) {
     const router = useRouter();
@@ -52,6 +54,11 @@ export default function LearningInterface({ initialLevel = 1, learningStyle = 'T
     const [user, setUser] = useState<User | null>(null);
     const [phase, setPhase] = useState<Phase>('LEARNING');
     const [level, setLevel] = useState(initialLevel);
+
+    // FIX: Sync level state when initialLevel prop changes (from Parent)
+    useEffect(() => {
+        setLevel(initialLevel);
+    }, [initialLevel]);
 
     const [fragments, setFragments] = useState<Fragment[]>([]);
     const [currentIndex, setCurrentIndex] = useState(0);
@@ -130,12 +137,54 @@ export default function LearningInterface({ initialLevel = 1, learningStyle = 'T
         }
     }, [isReady]);
 
-    // FETCH WELCOME MESSAGE
+    // FETCH WELCOME MESSAGE & STATIC CURRICULUM
     useEffect(() => {
-        const fetchWelcome = async () => {
-            if (!topic || !isReady) return;
+        // RESET STATE ON LEVEL CHANGE
+        setCurrentQuizIndex(0);
+        setScore(0);
+        setSentiment("");
+        setExplanation(null);
+        setSelectedOption(null);
+        setShowFeedback(false);
+        setIsCorrect(false);
+        setPhase('LEARNING'); // Start with learning phase
 
-            // Fetch API First for Static Data Priority
+        const fetchWelcome = async () => {
+            if (!topic) return;
+
+            // 1. STATIC ALJABAR CURRICULUM (Direct & Fast)
+            if (topic.toLowerCase().includes('aljabar') && ALJABAR_CURRICULUM[level]) {
+                const data = ALJABAR_CURRICULUM[level];
+
+                // SELECT CONTENT BASED ON LEARNING STYLE
+                let selectedContent = data.content;
+                if (learningStyle === 'VISUAL' && data.contentVisual) selectedContent = data.contentVisual;
+                else if (learningStyle === 'AUDITORY' && data.contentAuditory) selectedContent = data.contentAuditory;
+                else if (learningStyle === 'KINESTHETIC' && data.contentKinesthetic) selectedContent = data.contentKinesthetic;
+                else if (data.contentVisual) selectedContent = data.contentVisual;
+
+                const staticFragment: Fragment = {
+                    id: `static-${level}`,
+                    title: `Materi Lumi Level ${level}`,
+                    text: selectedContent,
+                    content: selectedContent,
+                    type: 'text',
+                    order: 1
+                };
+
+                setFragments([staticFragment]);
+                setQuizzes(data.quiz.map((q: any, i: number) => ({ ...q, id: `static-q-${i}` }))); // FORCE SYNC QUIZ WITH LEVEL
+                setLoading(false);
+
+                if (learningStyle === 'AUDITORY') {
+                    // Slight delay for smoother UX
+                    setTimeout(() => handleSpeak(selectedContent.substring(0, 300) + "..."), 1000);
+                }
+                return;
+            }
+
+            // 2. DYNAMIC CONTENT VIA API (For other topics)
+            if (!isReady) return;
             try {
                 const res = await fetch('/api/adaptive', {
                     method: 'POST',
@@ -149,36 +198,6 @@ export default function LearningInterface({ initialLevel = 1, learningStyle = 'T
                 });
                 const data = await res.json();
 
-                // 1. Check for Static Curriculum (Lumi Edition)
-                if (data.quiz && data.quiz.length > 0) {
-                    setWelcomeMessage("");
-
-                    // SELECT CONTENT BASED ON LEARNING STYLE
-                    let selectedContent = data.content; // fallback
-                    if (learningStyle === 'VISUAL' && data.contentVisual) selectedContent = data.contentVisual;
-                    else if (learningStyle === 'AUDITORY' && data.contentAuditory) selectedContent = data.contentAuditory;
-                    else if (learningStyle === 'KINESTHETIC' && data.contentKinesthetic) selectedContent = data.contentKinesthetic;
-                    else if (data.contentVisual) selectedContent = data.contentVisual; // Default to Visual if unknown
-
-                    const staticFragment: Fragment = {
-                        id: `static-${level}`,
-                        title: `Materi Lumi Level ${level}`,
-                        text: selectedContent,
-                        content: selectedContent,
-                        type: 'text',
-                        order: 1
-                    };
-                    setFragments([staticFragment]);
-                    setQuizzes(data.quiz);
-                    setLoading(false);
-
-                    if (learningStyle === 'AUDITORY') {
-                        setTimeout(() => handleSpeak(selectedContent.substring(0, 300) + "..."), 1000);
-                    }
-                    return;
-                }
-
-                // 2. Normal Dynamic Flow
                 if (data.explanation) {
                     setWelcomeMessage(data.explanation);
                     if (learningStyle === 'AUDITORY') {
@@ -190,10 +209,8 @@ export default function LearningInterface({ initialLevel = 1, learningStyle = 'T
             }
         };
 
-        if (phase === 'LEARNING') {
-            fetchWelcome();
-        }
-    }, [level, topic, learningStyle, phase, isReady]);
+        fetchWelcome();
+    }, [level, topic, learningStyle, isReady]); // Removed 'phase' to prevent loops
 
     const fetchData = async (uid: string, currentLevel: number) => {
         // Guard: If fragments are already loaded (e.g. by Static Curriculum), skip Firestore
@@ -434,8 +451,8 @@ $$ \\text{Sukses} = \\text{Usaha} + \\text{Konsistensi} $$
         if (currentQuizIndex < quizzes.length - 1) {
             setCurrentQuizIndex(prev => prev + 1);
         } else {
-            // End of Quiz
-            handleSubmitSentiment();
+            // End of Quiz -> Show Sentiment Modal
+            setPhase('SENTIMENT');
         }
     };
 
@@ -449,72 +466,77 @@ $$ \\text{Sukses} = \\text{Usaha} + \\text{Konsistensi} $$
                 body: JSON.stringify({ score, totalQuestions: quizzes.length, sentiment, learningStyle, topic })
             });
 
-            if (res.status === 429) {
-                // Rate limit fallback
-                const passed = score / quizzes.length >= 0.8;
-                setEvaluation({
-                    decision: passed ? 'NEXT_LEVEL' : 'REPEAT',
-                    message: passed
-                        ? `Luar biasa! Skor ${score}/${quizzes.length}. Lumi bangga padamu! 💙`
-                        : "Jangan menyerah! Coba pelajari lagi bagian yang salah ya.",
-                    emotion: sentiment
-                });
-                setPhase('RESULT');
-                setIsEvaluating(false);
-                return;
+            if (res.status === 429 || !res.ok) {
+                throw new Error("API Offline or Rate Limited");
             }
 
-            if (!res.ok) throw new Error("API Busy");
-
             const result: EvaluationResult = await res.json();
+
+            // Override for Mastery
+            if (passedLocally && level >= 5) {
+                result.message = `Lumi bangga sekali padamu! Kamu sudah menaklukkan seluruh tantangan ${topic} dengan hebat! Kamu merasa '${sentiment}'. Pertahankan semangat ini untuk materi selanjutnya!`;
+                result.decision = "NEXT_TOPIC";
+            }
+
             setEvaluation(result);
             setPhase('RESULT');
 
+        } catch (error) {
+            console.warn("Evaluation API Failed, using Fallback:", error);
+            // FALLBACK LOGIC
+            const passed = score / quizzes.length >= 0.8;
+            let msg = passed
+                ? `Luar biasa! Skor ${score}/${quizzes.length}. Hebat! Lumi bangga padamu! 💙`
+                : "Jangan menyerah! Coba pelajari lagi bagian yang salah ya.";
+
+            if (passed && level >= 5) {
+                msg = `Lumi bangga sekali padamu! Kamu sudah menaklukkan seluruh tantangan ${topic} dengan hebat! Kamu merasa '${sentiment}'. Pertahankan semangat ini untuk materi selanjutnya!`;
+            }
+
+            setEvaluation({
+                decision: passed ? (level >= 5 ? 'NEXT_TOPIC' : 'NEXT_LEVEL') : 'REPEAT',
+                message: msg,
+                emotion: sentiment
+            });
+            setPhase('RESULT');
+            setIsEvaluating(false); // Ensure loading stops here too if we don't rely only on finally
+
+        } finally {
+            setIsEvaluating(false);
+
+            // LOG SESSION (Executed even if API failed or fell back)
             if (user) {
+                const passedLocally = score / quizzes.length >= 0.8;
                 addDoc(collection(db, 'users', user.uid, 'sessions'), {
                     timestamp: new Date(),
                     score,
                     total: quizzes.length,
-                    decision: passedLocally ? 'NEXT_LEVEL' : 'REPEAT', // Use local decision for consistency
+                    decision: passedLocally ? 'NEXT_LEVEL' : 'REPEAT',
                     sentiment,
-                    emotion: result.emotion || sentiment, // Use local sentiment if API matches
+                    emotion: sentiment,
                     learningStyle,
                     level: level,
-                    xp: passedLocally ? 100 * level : 10 // Award XP
+                    xp: passedLocally ? 100 * level : 10
                 }).catch(e => console.warn("Session log failed", e));
 
                 if (passedLocally) {
-                    const nextLevelValue = level + 1;
+                    const title = level >= 5 ? `Lulus Topik ${topic}` : `Lulus Level ${level}`;
                     addDoc(collection(db, 'users', user.uid, 'achievements'), {
-                        title: `Lulus Level ${level}`,
+                        title: title,
                         date: new Date(),
-                        type: 'LEVEL_UP'
-                    }).catch(e => console.error(e));
+                        type: level >= 5 ? 'TOPIC_MASTERY' : 'LEVEL_UP',
+                        xp: 50
+                    }).catch(e => console.warn("Achievement log failed", e));
 
-                    setLevel(nextLevelValue);
+                    const nextLevelValue = level + 1;
+                    // Optimistic Update handled by Dashboard, but syncing DB here just in case:
                     setDoc(doc(db, 'users', user.uid), {
                         mathLevel: nextLevelValue,
-                        totalXp: increment(100 * level) // Firestore Increment
+                        progress: { [topic]: nextLevelValue }
                     }, { merge: true }).catch(console.error);
                 }
             }
-        } catch (err) {
-            console.error(err);
-            const passed = score / quizzes.length >= 0.8;
-            setEvaluation({
-                decision: passed ? 'NEXT_LEVEL' : 'REPEAT',
-                message: passed ? "Hebat! Nilaimu sangat bagus. Lumi bangga!" : "Tetap semangat! Coba pelajari lagi.",
-                emotion: sentiment || 'Neutral'
-            });
-            setPhase('RESULT');
-
-            // Still save progress on error
-            if (user && passed) {
-                const nextLevelValue = level + 1;
-                setLevel(nextLevelValue);
-                setDoc(doc(db, 'users', user.uid), { mathLevel: nextLevelValue }, { merge: true }).catch(console.error);
-            }
-        } finally { setIsEvaluating(false); }
+        }
     };
 
     const handleRestart = () => {
@@ -878,7 +900,19 @@ $$ \\text{Sukses} = \\text{Usaha} + \\text{Konsistensi} $$
                                 remarkPlugins={[remarkMath, remarkGfm]}
                                 rehypePlugins={[[rehypeKatex, { strict: false }]]}
                                 components={{
-                                    p: ({ node, ...props }: any) => <span {...props} />
+                                    p: ({ node, ...props }) => <span {...props} />, // Render inline to avoid P inside H3
+                                    code: ({ node, className, children, ...props }) => {
+                                        const match = /language-(\w+)/.exec(className || '');
+                                        return match ? (
+                                            <div className="my-2 bg-slate-900 text-slate-50 p-3 rounded-lg text-sm overflow-x-auto">
+                                                <code className={className} {...props}>{children}</code>
+                                            </div>
+                                        ) : (
+                                            <code className="bg-slate-100 px-1 py-0.5 rounded text-pink-500 font-mono text-sm" {...props}>
+                                                {children}
+                                            </code>
+                                        )
+                                    }
                                 }}
                             >
                                 {quizzes[currentQuizIndex].question}
@@ -999,50 +1033,60 @@ $$ \\text{Sukses} = \\text{Usaha} + \\text{Konsistensi} $$
                                 <div className="flex flex-col gap-3 w-full max-w-md">
                                     {/* SMART NAVIGATION LOGIC */}
                                     {isPassed ? (
-                                        // Case: High Score (>70%)
-                                        isAnxious ? (
-                                            // Sub-case: High Score + Negative Emotion (Anxiety)
+                                        level >= 5 ? (
+                                            // CASE: KAMPION MATEMATIKA (Level 5 Passed)
                                             <>
-                                                <div className="w-full bg-blue-50 border border-blue-200 p-4 rounded-xl text-sm text-blue-800 mb-2 text-left animate-fade-in">
-                                                    <strong>Saran AI:</strong> Nilaimu bagus, tapi sepertinya kamu masih ragu. Mau memantapkan materi dulu? (Direkomendasikan)
+                                                <div className="w-full bg-emerald-100 border-2 border-emerald-400 p-4 rounded-xl text-emerald-800 mb-4 text-center animate-bounce shadow-lg">
+                                                    <h3 className="font-black text-xl mb-1">👑 KAMPION MATEMATIKA!</h3>
+                                                    <p className="text-sm font-medium">Lumi bangga sekali padamu! Kamu sudah menaklukkan seluruh tantangan {topic} dengan hebat!</p>
                                                 </div>
 
-                                                {/* Recommended Option: Blue Color */}
                                                 <button
-                                                    onClick={handleRestart}
-                                                    className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-xl shadow-blue-200 hover:bg-blue-700 transition-all border-2 border-blue-400"
+                                                    onClick={() => onSessionComplete && onSessionComplete({
+                                                        success: true,
+                                                        nextLevel: 6, // Mastery
+                                                        emotion: sentiment,
+                                                        decision: 'NEXT_TOPIC',
+                                                        action: 'SWITCH_TOPIC',
+                                                        target: 'Geometri' // Hardcoded for Aljabar flow
+                                                    })}
+                                                    className="w-full py-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-2xl font-bold shadow-xl shadow-purple-200 hover:scale-105 transition-all text-lg"
                                                 >
-                                                    Ulangi Kuis & Pelajari Materi (Rekomendasi) 🌟
-                                                </button>
-
-                                                <button
-                                                    onClick={() => {
-                                                        setPhase('QUIZ');
-                                                        setCurrentQuizIndex(0);
-                                                        setScore(0);
-                                                        setSentiment("");
-                                                        setExplanation(null);
-                                                    }}
-                                                    className="w-full py-4 bg-white border-2 border-slate-200 text-slate-600 rounded-2xl font-bold hover:bg-slate-50 transition-all"
-                                                >
-                                                    Ulangi Kuis Saja 📝
-                                                </button>
-
-                                                <button
-                                                    onClick={() => onSessionComplete ? onSessionComplete({ success: true, nextLevel: level + 1, emotion: evaluation?.emotion, decision: 'NEXT_LEVEL' }) : handleNextLevel()}
-                                                    className="w-full py-4 bg-slate-200 text-slate-500 rounded-2xl font-bold hover:bg-slate-300 transition-all"
-                                                >
-                                                    Lanjutkan Level Berikutnya ➡
+                                                    LANJUT KE GEOMETRI 📐
                                                 </button>
                                             </>
                                         ) : (
-                                            // Sub-case: High Score + Positive/Neutral Emotion
-                                            <button
-                                                onClick={() => onSessionComplete ? onSessionComplete({ success: true, nextLevel: level + 1, emotion: evaluation?.emotion, decision: 'NEXT_LEVEL' }) : handleNextLevel()}
-                                                className="w-full py-4 bg-emerald-500 text-white rounded-2xl font-bold shadow-xl shadow-emerald-200 hover:bg-emerald-600 transition-all hover:-translate-y-1"
-                                            >
-                                                Lanjut Level Berikutnya 🚀
-                                            </button>
+                                            // Case: High Score (>80%) - Normal Level
+                                            isAnxious ? (
+                                                // Sub-case: Prioritize Confidence
+                                                <>
+                                                    <div className="w-full bg-blue-50 border border-blue-200 p-4 rounded-xl text-sm text-blue-800 mb-2 text-left animate-fade-in">
+                                                        <strong>Saran AI:</strong> Nilaimu bagus, tapi sepertinya kamu masih ragu. Mau memantapkan materi dulu? (Direkomendasikan)
+                                                    </div>
+
+                                                    <button
+                                                        onClick={handleRestart}
+                                                        className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-xl shadow-blue-200 hover:bg-blue-700 transition-all border-2 border-blue-400"
+                                                    >
+                                                        Ulangi Kuis & Pelajari Materi (Rekomendasi) 🌟
+                                                    </button>
+
+                                                    <button
+                                                        onClick={() => onSessionComplete ? onSessionComplete({ success: true, nextLevel: level + 1, emotion: evaluation?.emotion, decision: 'NEXT_LEVEL' }) : handleNextLevel()}
+                                                        className="w-full py-4 bg-slate-200 text-slate-500 rounded-2xl font-bold hover:bg-slate-300 transition-all"
+                                                    >
+                                                        Lanjutkan Level Berikutnya ➡
+                                                    </button>
+                                                </>
+                                            ) : (
+                                                // Sub-case: High Score + Positive/Neutral Emotion
+                                                <button
+                                                    onClick={() => onSessionComplete ? onSessionComplete({ success: true, nextLevel: level + 1, emotion: evaluation?.emotion, decision: 'NEXT_LEVEL' }) : handleNextLevel()}
+                                                    className="w-full py-4 bg-emerald-500 text-white rounded-2xl font-bold shadow-xl shadow-emerald-200 hover:bg-emerald-600 transition-all hover:-translate-y-1"
+                                                >
+                                                    Lanjut Level Berikutnya 🚀
+                                                </button>
+                                            )
                                         )
                                     ) : (
                                         // Case: Low Score / Failed
@@ -1077,7 +1121,7 @@ $$ \\text{Sukses} = \\text{Usaha} + \\text{Konsistensi} $$
                                 </div>
                             </>
                         )}
-                    </div>
+                    </div >
                 )
             }
         </div >
