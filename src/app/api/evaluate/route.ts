@@ -65,7 +65,7 @@ export async function POST(req: Request) {
             decision: "REPEAT",
             emotion: "Anticipation",
             confidenceScore: 0.0,
-            message: "Sistem sedang sibuk, mari kita coba ulangi materi ini dengan perlahan.",
+            message: "Hai! Lumi sedang mengisi energi sebentar. Mari kita coba ulang materi ini bersama-sama! 💙",
             debug: process.env.NODE_ENV === 'development' ? error.message : undefined
         }, { status: 500 });
     }

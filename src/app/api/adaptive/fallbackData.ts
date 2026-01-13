@@ -4,15 +4,15 @@
 // ============================================
 
 export interface FallbackContent {
-    explanation: string;
-    topic: string;
-    level: number;
-    style: string;
+   explanation: string;
+   topic: string;
+   level: number;
+   style: string;
 }
 
 // Aljabar Content - Detailed and Educational
 export const ALJABAR_FALLBACK: Record<number, string> = {
-    1: `### 💡 Pengantar Aljabar - Level 1
+   1: `### 💡 Pengantar Aljabar - Level 1
 
 **🎯 Analogi Dunia Nyata: Timbangan Dapur**
 
@@ -71,7 +71,7 @@ Maka: $$x = \\frac{c - b}{a}$$
 **🌟 Motivasi:**
 Kamu sudah memahami dasar yang paling penting! Aljabar adalah bahasa universal matematika - dengan menguasainya, kamu bisa menyelesaikan berbagai masalah di dunia nyata!`,
 
-    2: `### 💡 Sistem Persamaan Linear Dua Variabel (SPLDV) - Level 2
+   2: `### 💡 Sistem Persamaan Linear Dua Variabel (SPLDV) - Level 2
 
 **🎯 Analogi Dunia Nyata: Detektif Belanja**
 
@@ -136,7 +136,7 @@ $$y = \\frac{a_1c_2 - a_2c_1}{a_1b_2 - a_2b_1}$$
 **🌟 Fun Fact:**
 SPLDV digunakan oleh ekonom untuk menghitung titik keseimbangan pasar, oleh insinyur untuk merancang jembatan, dan oleh programmer untuk membuat game!`,
 
-    3: `### 💡 Pertidaksamaan Linear - Level 3
+   3: `### 💡 Pertidaksamaan Linear - Level 3
 
 **🎯 Analogi Dunia Nyata: Batas Kecepatan**
 
@@ -199,7 +199,7 @@ Selalu **periksa** dengan memasukkan satu angka dari himpunan penyelesaian ke pe
 **🌟 Aplikasi:**
 Pertidaksamaan digunakan untuk optimasi bisnis, menentukan batas aman obat, dan bahkan mengoptimalkan rute di Google Maps!`,
 
-    4: `### 💡 Persamaan Kuadrat - Level 4
+   4: `### 💡 Persamaan Kuadrat - Level 4
 
 **🎯 Analogi Dunia Nyata: Lompatan Bola**
 
@@ -275,7 +275,7 @@ $$x_2 = \\frac{5 - 1}{2} = 2$$
 **🌟 Aplikasi:**
 Fisika (gerak peluru), ekonomi (profit maksimum), arsitektur (lengkungan jembatan)!`,
 
-    5: `### 💡 Aplikasi Aljabar dalam Kehidupan Nyata - Level 5
+   5: `### 💡 Aplikasi Aljabar dalam Kehidupan Nyata - Level 5
 
 **🏆 Selamat! Kamu sudah di level tertinggi!**
 
@@ -360,7 +360,7 @@ Kamu telah menguasai aljabar dari dasar hingga aplikasi nyata. Skill ini akan me
 
 // Other topics can be added here
 export const TRIGONOMETRI_FALLBACK: Record<number, string> = {
-    1: `### 💡 Pengantar Trigonometri - Level 1
+   1: `### 💡 Pengantar Trigonometri - Level 1
 
 **🎯 Analogi:** Trigonometri seperti GPS internal untuk mengukur sudut dan jarak!
 
@@ -374,7 +374,7 @@ export const TRIGONOMETRI_FALLBACK: Record<number, string> = {
 - **C**os = **A**djacent / **H**ypotenuse  
 - **T**an = **O**pposite / **A**djacent
 
-*Konten offline - API akan segera tersedia!*`
+**Lumi percaya padamu! Kamu pasti bisa! 💙**`
 };
 
 // Default fallback for any topic
@@ -410,19 +410,19 @@ export const DEFAULT_FALLBACK = `### 💡 Panduan Belajar Matematika
 - Pahami konsep, bukan hafal rumus
 - Jangan malu bertanya!
 
-*Konten offline - Data dari cache lokal*`;
+**Lumi percaya padamu! Kita taklukkan ini bersama! 💙**`;
 
 // Helper function to get fallback content
 export function getFallbackContent(topic: string, level: number): string {
-    const topicLower = topic.toLowerCase();
+   const topicLower = topic.toLowerCase();
 
-    if (topicLower === 'aljabar') {
-        return ALJABAR_FALLBACK[level] || ALJABAR_FALLBACK[1] || DEFAULT_FALLBACK;
-    }
+   if (topicLower === 'aljabar') {
+      return ALJABAR_FALLBACK[level] || ALJABAR_FALLBACK[1] || DEFAULT_FALLBACK;
+   }
 
-    if (topicLower === 'trigonometri') {
-        return TRIGONOMETRI_FALLBACK[level] || TRIGONOMETRI_FALLBACK[1] || DEFAULT_FALLBACK;
-    }
+   if (topicLower === 'trigonometri') {
+      return TRIGONOMETRI_FALLBACK[level] || TRIGONOMETRI_FALLBACK[1] || DEFAULT_FALLBACK;
+   }
 
-    return DEFAULT_FALLBACK;
+   return DEFAULT_FALLBACK;
 }

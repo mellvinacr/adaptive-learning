@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { db, auth } from '@/lib/firebase';
-import { collection, query, orderBy, getDocs, getDoc, doc, setDoc } from 'firebase/firestore';
+import { collection, query, orderBy, getDocs, getDoc, doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
@@ -32,7 +32,8 @@ export default function DashboardPage() {
     const [chartData, setChartData] = useState<any[]>([]);
     const [topicProgress, setTopicProgress] = useState<{ [key: string]: number }>({});
     const [lastActiveSession, setLastActiveSession] = useState<any>(null);
-    const [unlockedLevel, setUnlockedLevel] = useState(1);
+    // Topic-Based Progress: { aljabar: 3, trigonometri: 1 }
+    const [topicLevels, setTopicLevels] = useState<{ [key: string]: number }>({});
     const [showAIHelp, setShowAIHelp] = useState(false);
 
     // Style Selection Logic
@@ -51,131 +52,165 @@ export default function DashboardPage() {
     ];
 
     // -------------------------------------------------------------
-    // DATA FETCHING & LOGIC
+    // REAL-TIME DATA FETCHING WITH onSnapshot
     // -------------------------------------------------------------
     useEffect(() => {
-        const unsub = onAuthStateChanged(auth, async (currentUser) => {
+        let unsubProfile: (() => void) | null = null;
+        let unsubSessions: (() => void) | null = null;
+        let unsubBadges: (() => void) | null = null;
+
+        const unsubAuth = onAuthStateChanged(auth, (currentUser) => {
             if (currentUser) {
                 setUser(currentUser);
                 setLoading(true);
 
-                // 1. Fetch Profile
-                const docRef = doc(db, 'users', currentUser.uid);
-                const docSnap = await getDoc(docRef);
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    setProfile(data);
-                    if (data.mathLevel) setUnlockedLevel(data.mathLevel);
-                }
-
-                // 2. Fetch Sessions
-                const q = query(collection(db, 'users', currentUser.uid, 'sessions'), orderBy('timestamp', 'desc'));
-                const querySnapshot = await getDocs(q);
-                const history = querySnapshot.docs.map(doc => {
-                    const d = doc.data();
-                    return {
-                        id: doc.id,
-                        ...d,
-                        date: d.timestamp?.toDate ? d.timestamp.toDate() : new Date(d.timestamp)
-                    };
-                });
-
-                // 3. Fetch Achievements (Badges)
-                const qBadges = query(collection(db, 'users', currentUser.uid, 'achievements'));
-                const snapBadges = await getDocs(qBadges);
-                setBadgesCount(snapBadges.size);
-
-                // 4. Calculate Data
-                let totalXp = 0;
-                const maxLevelMap: { [topic: string]: number } = {};
-                const uniqueDays = new Set<string>();
-
-                TOPICS.forEach(t => maxLevelMap[t.id] = 0);
-
-                history.forEach((sess: any) => {
-                    // XP
-                    const sessionXp = (sess.score || 0) * 10;
-                    const bonusXp = sess.decision === 'NEXT_LEVEL' ? 50 : 0;
-                    totalXp += sessionXp + bonusXp;
-
-                    // Progress
-                    if (sess.decision === 'NEXT_LEVEL' && sess.level) {
-                        if (!maxLevelMap[sess.topic] || sess.level > maxLevelMap[sess.topic]) {
-                            maxLevelMap[sess.topic] = sess.level;
+                // 1. Real-time Profile Listener
+                const profileRef = doc(db, 'users', currentUser.uid);
+                unsubProfile = onSnapshot(profileRef, (docSnap) => {
+                    if (docSnap.exists()) {
+                        const data = docSnap.data();
+                        setProfile(data);
+                        // Merge profile progress if exists
+                        if (data.progress) {
+                            setTopicLevels(prev => ({ ...prev, ...data.progress }));
                         }
                     }
+                });
 
-                    // For Streak
-                    if (sess.date) {
-                        const dateStr = sess.date.toISOString().split('T')[0];
-                        uniqueDays.add(dateStr);
+                // 2. Real-time Sessions Listener (for XP, Streak, Progress)
+                const sessionsQuery = query(
+                    collection(db, 'users', currentUser.uid, 'sessions'),
+                    orderBy('timestamp', 'desc')
+                );
+                unsubSessions = onSnapshot(sessionsQuery, (snapshot) => {
+                    const history = snapshot.docs.map(doc => {
+                        const d = doc.data();
+                        return {
+                            id: doc.id,
+                            ...d,
+                            date: d.timestamp?.toDate ? d.timestamp.toDate() : new Date(d.timestamp || Date.now())
+                        };
+                    });
+
+                    // Calculate XP
+                    let totalXp = 0;
+                    const maxLevelMap: { [topic: string]: number } = {};
+                    const uniqueDays = new Set<string>();
+
+                    TOPICS.forEach(t => maxLevelMap[t.id] = 0);
+
+                    history.forEach((sess: any) => {
+                        const sessionXp = (sess.score || 0) * 10;
+                        const levelUpBonus = sess.decision === 'NEXT_LEVEL' ? 50 : 0;
+                        // Special Bonus for Kinesthetic (Interactive Effort)
+                        const styleBonus = sess.learningStyle === 'KINESTHETIC' ? 20 : 0;
+
+                        totalXp += sessionXp + levelUpBonus + styleBonus;
+
+                        // Progress tracking
+                        if (sess.decision === 'NEXT_LEVEL' && sess.level && sess.topic) {
+                            if (!maxLevelMap[sess.topic] || sess.level > maxLevelMap[sess.topic]) {
+                                maxLevelMap[sess.topic] = sess.level;
+                            }
+                        }
+
+                        // Streak tracking
+                        if (sess.date) {
+                            try {
+                                const dateStr = sess.date.toISOString().split('T')[0];
+                                uniqueDays.add(dateStr);
+                            } catch (e) { /* ignore invalid dates */ }
+                        }
+                    });
+
+                    setXp(totalXp);
+
+                    // Merge session-calculated levels with existing state (from profile)
+                    // Priority: Max(Profile, SessionCalc, 1)
+                    setTopicLevels(prev => {
+                        const newLevels = { ...prev };
+                        Object.keys(maxLevelMap).forEach(k => {
+                            newLevels[k] = Math.max(newLevels[k] || 1, maxLevelMap[k] || 1);
+                        });
+                        return newLevels;
+                    });
+
+                    // Progress Map %
+                    const progressMap: { [key: string]: number } = {};
+                    Object.keys(maxLevelMap).forEach(key => {
+                        progressMap[key] = Math.min((maxLevelMap[key] / 5) * 100, 100);
+                    });
+                    setTopicProgress(progressMap);
+
+                    // Last Active Session
+                    if (history.length > 0) {
+                        setLastActiveSession(history[0]);
                     }
-                });
-                setXp(totalXp);
 
-                // Progress Map %
-                const progressMap: { [key: string]: number } = {};
-                Object.keys(maxLevelMap).forEach(key => {
-                    progressMap[key] = Math.min((maxLevelMap[key] / 5) * 100, 100);
-                });
-                setTopicProgress(progressMap);
-
-                // Last Active
-                if (history.length > 0) {
-                    setLastActiveSession(history[0]);
-                }
-
-                // Streak Calc
-                const sortedDates = Array.from(uniqueDays).sort().reverse();
-                let currentStreak = 0;
-                if (sortedDates.length > 0) {
-                    const today = new Date().toISOString().split('T')[0];
-                    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-                    if (sortedDates[0] === today || sortedDates[0] === yesterday) {
-                        currentStreak = 1;
-                        let lastDate = new Date(sortedDates[0]);
-                        for (let i = 1; i < sortedDates.length; i++) {
-                            const currDate = new Date(sortedDates[i]);
-                            const diff = Math.floor((lastDate.getTime() - currDate.getTime()) / (1000 * 60 * 60 * 24));
-                            if (diff === 1) {
-                                currentStreak++;
-                                lastDate = currDate;
-                            } else {
-                                break;
+                    // Streak Calculation
+                    const sortedDates = Array.from(uniqueDays).sort().reverse();
+                    let currentStreak = 0;
+                    if (sortedDates.length > 0) {
+                        const today = new Date().toISOString().split('T')[0];
+                        const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+                        if (sortedDates[0] === today || sortedDates[0] === yesterday) {
+                            currentStreak = 1;
+                            let lastDate = new Date(sortedDates[0]);
+                            for (let i = 1; i < sortedDates.length; i++) {
+                                const currDate = new Date(sortedDates[i]);
+                                const diff = Math.floor((lastDate.getTime() - currDate.getTime()) / (1000 * 60 * 60 * 24));
+                                if (diff === 1) {
+                                    currentStreak++;
+                                    lastDate = currDate;
+                                } else {
+                                    break;
+                                }
                             }
                         }
                     }
-                }
-                setStreak(currentStreak);
+                    setStreak(currentStreak);
 
-                // Chart Data (Last 7 Days)
-                const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-                const stats: { [key: string]: number } = {};
-                // Force all 0
-                const chartArr = [];
-                for (let i = 6; i >= 0; i--) {
-                    const d = new Date();
-                    d.setDate(d.getDate() - i);
-                    const dayName = days[d.getDay()];
+                    // Chart Data (Last 7 Days)
+                    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                    const chartArr = [];
+                    for (let i = 6; i >= 0; i--) {
+                        const d = new Date();
+                        d.setDate(d.getDate() - i);
+                        const dayName = days[d.getDay()];
 
-                    const dayTotal = history.filter((s: any) => {
-                        const sDate = s.date;
-                        return sDate.getDate() === d.getDate() && sDate.getMonth() === d.getMonth() && sDate.getFullYear() === d.getFullYear();
-                    }).reduce((acc: number, curr: any) => {
-                        const sXp = (curr.score || 0) * 10 + (curr.decision === 'NEXT_LEVEL' ? 50 : 0);
-                        return acc + sXp;
-                    }, 0);
+                        const dayTotal = history.filter((s: any) => {
+                            if (!s.date) return false;
+                            return s.date.getDate() === d.getDate() &&
+                                s.date.getMonth() === d.getMonth() &&
+                                s.date.getFullYear() === d.getFullYear();
+                        }).reduce((acc: number, curr: any) => {
+                            return acc + (curr.score || 0) * 10 + (curr.decision === 'NEXT_LEVEL' ? 50 : 0);
+                        }, 0);
 
-                    chartArr.push({ name: dayName, xp: dayTotal });
-                }
-                setChartData(chartArr);
+                        chartArr.push({ name: dayName, xp: dayTotal });
+                    }
+                    setChartData(chartArr);
+                    setLoading(false);
+                });
 
-                setLoading(false);
+                // 3. Real-time Badges Listener
+                const badgesQuery = collection(db, 'users', currentUser.uid, 'achievements');
+                unsubBadges = onSnapshot(badgesQuery, (snapshot) => {
+                    setBadgesCount(snapshot.size);
+                });
+
             } else {
                 router.push('/');
             }
         });
-        return () => unsub();
+
+        // Cleanup all listeners
+        return () => {
+            unsubAuth();
+            if (unsubProfile) unsubProfile();
+            if (unsubSessions) unsubSessions();
+            if (unsubBadges) unsubBadges();
+        };
     }, []);
 
     // -------------------------------------------------------------
@@ -185,26 +220,34 @@ export default function DashboardPage() {
     function handleTopicClick(id: string): void {
         if (!id) return;
         setPendingTopic(id);
-        setPendingLevel(unlockedLevel);
+        const currentLevel = topicLevels[id] || 1;
+        setPendingLevel(currentLevel);
         setShowStyleModal(true);
     }
 
     const handleResumeLearning = () => {
-        if (lastActiveSession) {
-            const t = lastActiveSession.topic || 'aljabar';
-            const l = lastActiveSession.decision === 'NEXT_LEVEL' ? (lastActiveSession.level || 1) + 1 : (lastActiveSession.level || 1);
-            setPendingTopic(t);
-            setPendingLevel(l);
-            setShowStyleModal(true);
-        } else {
-            handleTopicClick('aljabar');
+        // Find topic with highest progress if no last session
+        let targetTopic = lastActiveSession?.topic;
+
+        if (!targetTopic) {
+            let maxLvl = 0;
+            // Find most progressed topic
+            Object.entries(topicLevels).forEach(([t, l]) => {
+                if (l > maxLvl) {
+                    maxLvl = l;
+                    targetTopic = t;
+                }
+            });
         }
+
+        const topic = targetTopic || 'aljabar';
+        handleTopicClick(topic);
     };
 
     const confirmLearningStart = (style: string) => {
         setSessionStyle(style);
         setSelectedTopic(pendingTopic);
-        setUnlockedLevel(pendingLevel);
+        // No need to setUnlockedLevel here, we rely on pendingLevel or topicLevels
         setShowStyleModal(false);
         setView('LEARNING');
     };
@@ -288,7 +331,7 @@ export default function DashboardPage() {
                     <LearningInterface
                         learningStyle={sessionStyle} // Pass Selected Style
                         topic={selectedTopic}
-                        initialLevel={unlockedLevel}
+                        initialLevel={topicLevels[selectedTopic] || 1}
                         onSessionComplete={async (result) => {
                             if (result.success && result.nextLevel > 5) {
                                 if (user) {
@@ -297,8 +340,20 @@ export default function DashboardPage() {
                                     });
                                 }
                             }
-                            if (result.success && result.nextLevel > unlockedLevel) {
-                                setUnlockedLevel(result.nextLevel);
+                            // Update Topic Progress
+                            if (result.success) {
+                                const currentLvl = topicLevels[selectedTopic] || 1;
+                                if (result.nextLevel > currentLvl) {
+                                    const nextL = result.nextLevel;
+                                    setTopicLevels(prev => ({ ...prev, [selectedTopic]: nextL }));
+
+                                    // Persist to Firestore: users/{uid} set merge progress
+                                    if (user) {
+                                        await setDoc(doc(db, 'users', user.uid), {
+                                            progress: { [selectedTopic]: nextL }
+                                        }, { merge: true });
+                                    }
+                                }
                                 setShowAIHelp(false);
                                 setView('TOPIC_MASTER');
                             }
@@ -317,10 +372,10 @@ export default function DashboardPage() {
             <TopicMastery
                 topicId={selectedTopic}
                 onBack={handleBackToDashboard}
-                currentLevel={unlockedLevel}
+                currentLevel={topicLevels[selectedTopic] || 1}
                 showAIHelp={showAIHelp}
                 onStartLevel={(level) => {
-                    setUnlockedLevel(level);
+                    setPendingLevel(level);
                     setView('LEARNING');
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
@@ -396,7 +451,9 @@ export default function DashboardPage() {
                                             <h1 className="text-3xl font-black text-slate-900">{profile?.name || user?.displayName || 'Siswa'}</h1>
                                             <span className="px-3 py-1 rounded-full bg-blue-600 text-white text-[10px] font-bold uppercase tracking-widest shadow-lg shadow-blue-200">Premium Student</span>
                                         </div>
-                                        <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mb-8">Level {unlockedLevel} • Senior High School</p>
+                                        <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mb-8">
+                                            Level {Math.max(...Object.values(topicLevels).concat(1))} (Max) • Senior High School
+                                        </p>
 
                                         <div className="grid grid-cols-3 gap-4">
                                             <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
@@ -469,10 +526,14 @@ export default function DashboardPage() {
                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
                                 {TOPICS.map((topic) => {
                                     const prog = Math.round(topicProgress[topic.id] || 0);
+                                    // Unlock Logic: Previous topic must be >= Level 3 (simplified) or Open Access
+                                    const isLocked = false; // Decoupled progress means all open, or implement specific logic
+
                                     return (
                                         <button
                                             key={topic.id}
-                                            onClick={() => handleTopicClick(topic.id)}
+                                            disabled={isLocked}
+                                            onClick={() => !isLocked && handleTopicClick(topic.id)}
                                             className="group bg-white p-6 rounded-[2rem] border border-slate-50 shadow-[0_10px_30px_rgba(0,0,0,0.02)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.05)] transition-all hover:-translate-y-2 flex flex-col items-center text-center"
                                         >
                                             <div className="w-14 h-14 rounded-full bg-slate-50 flex items-center justify-center text-2xl mb-4 group-hover:scale-110 transition-transform">

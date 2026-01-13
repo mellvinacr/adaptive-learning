@@ -5,109 +5,76 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { getFallbackContent } from './fallbackData';
 
 // ============================================
-// RICH OFFLINE CONTENT DATABASE
+// HARD-CODED "KOTAK MISTERI" FALLBACK
+// Premium offline content - always available
 // ============================================
-const OFFLINE_CONTENT: Record<string, Record<number, string>> = {
-    aljabar: {
-        1: `### 💡 Pengantar Aljabar - Level 1
+const KOTAK_MISTERI_FALLBACK = `### ✨ Hai! Aku Lumi, Teman Belajarmu!
 
-**Analogi Dunia Nyata**: 
-Bayangkan aljabar seperti timbangan dapur. Apa pun yang kamu lakukan di sisi kiri, harus kamu lakukan juga di sisi kanan agar tetap seimbang!
+**Tenang, Aljabar itu bukan monster!** Justru ini adalah permainan tebak-tebakan yang seru! Aku Lumi, dan aku akan jelaskan dengan cara yang menyenangkan! 💙
 
-**Langkah Penyelesaian Persamaan Linear**:
-1. **Identifikasi**: Temukan variabel (biasanya x) dan konstanta (angka biasa)
-2. **Kelompokkan**: Pindahkan variabel ke satu sisi, konstanta ke sisi lain
-3. **Selesaikan**: Bagi kedua sisi dengan koefisien variabel
+---
 
-**Contoh Soal**:
-$$2x + 5 = 13$$
-- Kurangi 5 dari kedua sisi: $$2x = 8$$
-- Bagi kedua sisi dengan 2: $$x = 4$$
+**🎯 Analogi Kotak Misteri**
 
-**Tips Mengingat**: "Yang pindah rumah, ganti tanda!" 🏠➡️`,
+Aljabar adalah tentang **mencari tahu isi sebuah kotak tersembunyi**. Huruf **"x"** itu hanyalah sebuah **Kotak Misteri** 🎁 yang isinya belum kita tahu.
 
-        2: `### 💡 Persamaan Linear Dua Variabel - Level 2
+Bayangkan kamu punya kotak dan seseorang bilang: *"Isi kotak ini ditambah 2 hasilnya 5"*. Berapa isi kotaknya? Tentu saja **3**! Karena $$3 + 2 = 5$$.
 
-**Analogi Dunia Nyata**:
-Seperti mencari harga 2 barang di toko. Kamu butuh 2 petunjuk (persamaan) untuk menemukan harga masing-masing!
+Nah, dalam matematika kita tulis: $$x + 2 = 5$$
 
-**Metode Substitusi**:
-1. Nyatakan satu variabel dalam variabel lain dari persamaan pertama
-2. Substitusikan ke persamaan kedua
-3. Selesaikan variabel yang tersisa
-4. Cari nilai variabel pertama
+---
 
-**Metode Eliminasi**:
-1. Samakan koefisien salah satu variabel
-2. Kurangkan atau jumlahkan kedua persamaan
-3. Selesaikan variabel yang tersisa
+**📌 LANGKAH 1: Persamaan Awal**
 
-**Rumus Umum**:
-$$ax + by = c$$
-$$dx + ey = f$$
+Kita punya Kotak Misteri:
+$$x + 2 = 5$$
 
-**Tips**: Eliminasi lebih cepat, Substitusi lebih aman! ⚡`,
+Artinya: *"Isi kotak ditambah 2 sama dengan 5"*
 
-        3: `### 💡 Pertidaksamaan Linear - Level 3
+---
 
-**Konsep Kunci**:
-Pertidaksamaan seperti persamaan, tapi jawabannya berupa RANGE nilai, bukan satu angka!
+**📌 LANGKAH 2: Mencari Isi Kotak**
 
-**Simbol Penting**:
-- $$>$$ : lebih dari
-- $$<$$ : kurang dari
-- $$\\geq$$ : lebih dari atau sama dengan
-- $$\\leq$$ : kurang dari atau sama dengan
+Untuk menemukan isi kotak, kita perlu **menyingkirkan angka 2** dari sisi kiri.
 
-**Aturan Emas**:
-Jika mengalikan/membagi dengan bilangan NEGATIF, tanda pertidaksamaan BERBALIK!
+Caranya? Kurangi kedua sisi dengan 2:
+$$x + 2 - 2 = 5 - 2$$
+$$x = 3$$
 
-$$-2x > 6 \\Rightarrow x < -3$$
+💡 **Ingat**: Apa yang dilakukan di kiri, harus dilakukan juga di kanan!
 
-**Tips Menggambar**: Garis bilangan adalah teman terbaikmu! 📏`,
+---
 
-        4: `### 💡 Sistem Persamaan Kuadrat - Level 4
+**📌 LANGKAH 3: Solusi Akhir**
 
-**Rumus ABC (Kuadrat)**:
-$$x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$$
+$$x = 3$$
 
-**Langkah Penggunaan**:
-1. Tulis dalam bentuk standar: $$ax^2 + bx + c = 0$$
-2. Identifikasi nilai a, b, dan c
-3. Substitusi ke rumus ABC
-4. Hitung kedua kemungkinan (+ dan -)
+✅ **Verifikasi**: Mari kita buktikan!
+$$3 + 2 = 5$$ ✓ Benar!
 
-**Diskriminan** ($$D = b^2 - 4ac$$):
-- D > 0: Dua akar berbeda
-- D = 0: Satu akar (kembar)
-- D < 0: Tidak ada akar real
+---
 
-**Tips**: Hafalkan rumus ABC seperti lagu! 🎵`,
+**💪 Tips dari Lumi**
 
-        5: `### 💡 Aplikasi Aljabar dalam Kehidupan - Level 5
+> *"Yang pindah rumah, ganti tanda!"* 🏠➡️🏠
+> 
+> Jika angka pindah dari kiri ke kanan (atau sebaliknya), tandanya berubah:
+> - $$+$$ menjadi $$-$$
+> - $$\\times$$ menjadi $$\\div$$
 
-**Contoh Aplikasi**:
-1. **Ekonomi**: Menghitung break-even point bisnis
-2. **Fisika**: Persamaan gerak lurus berubah beraturan
-3. **Teknologi**: Algoritma dan pemrograman
+---
 
-**Soal Cerita Tips**:
-1. Baca dengan teliti, tandai angka-angka penting
-2. Tentukan apa yang dicari (variabel)
-3. Tulis persamaan berdasarkan informasi
-4. Selesaikan dan periksa jawaban
+**🌟 Lumi Bangga Padamu!**
 
-**Rumus Praktis**:
-$$Jarak = Kecepatan \\times Waktu$$
-$$s = v \\times t$$
+Selamat! Kamu sudah memahami konsep dasar aljabar. Ingat, **x** itu cuma kotak misteri - dan kamu adalah detektif yang mencari isinya! 🕵️
 
-**Kamu sudah di level tertinggi! Luar biasa!** 🏆`
-    }
-};
+**Kita taklukkan level berikutnya bersama!** 💙`;
 
-const DEFAULT_FALLBACK = `### 💡 Panduan Belajar
+const DEFAULT_FALLBACK = `### ✨ Hai! Aku Lumi!
 
-**Langkah Dasar Mengerjakan Soal**:
+**Lumi** sedang mengisi energi sebentar, tapi tenang, aku sudah menyimpan catatan penting untukmu di sini...
+
+**💡 Langkah Dasar Mengerjakan Soal:**
 1. Baca soal dengan teliti
 2. Identifikasi apa yang diketahui
 3. Tentukan apa yang ditanyakan
@@ -115,7 +82,7 @@ const DEFAULT_FALLBACK = `### 💡 Panduan Belajar
 5. Substitusi dan hitung
 6. Periksa jawaban
 
-*Konten offline - API akan segera tersedia!*`;
+**Lumi percaya padamu! Kita taklukkan level ini bersama!** 💙`;
 
 // ============================================
 // API ROUTE HANDLER
@@ -128,32 +95,41 @@ export async function POST(req: Request) {
     // Silent logging - only essential info
     console.log(`📦 [API] ${mode} | ${topic} L${currentLevel} | ${style}`);
 
-    if (!text) {
-        return NextResponse.json({ error: 'Text is required' }, { status: 400 });
-    }
-
     // ============================================
     // 1. CACHE FIRST - Always check before API
     // ============================================
-    const cacheKey = `${topic}_L${currentLevel}_${style}_${mode}`.replace(/\s+/g, '_');
-
+    const cacheKey = `${topic}_L${currentLevel}_${style}_${mode}`.replace(/\\s+/g, '_');
     try {
         const cacheRef = doc(db, 'materi_cache', cacheKey);
         const cacheDoc = await getDoc(cacheRef);
-
         if (cacheDoc.exists()) {
-            console.log(`✅ Cache HIT: ${cacheKey}`);
-            return NextResponse.json({
-                explanation: cacheDoc.data()?.explanation,
-                fromCache: true
-            });
+            const cachedExplanation = cacheDoc.data()?.explanation || '';
+
+            // VALIDATION: Reject old non-Lumi cached content
+            const invalidPhrases = ['Halo calon', 'Guru Motivator', 'Ibu/Bapak', 'Sistem sedang sibuk'];
+            const hasInvalidContent = invalidPhrases.some(phrase =>
+                cachedExplanation.toLowerCase().includes(phrase.toLowerCase())
+            );
+
+            if (!hasInvalidContent && cachedExplanation.length > 50) {
+                console.log(`✅ Cache HIT (Valid): ${cacheKey}`);
+                return NextResponse.json({
+                    explanation: cachedExplanation,
+                    fromCache: true
+                });
+            } else {
+                console.log(`⚠️ Cache INVALID (Old format): ${cacheKey}`);
+                // Continue to API or fallback
+            }
+        } else {
+            console.log(`📭 Cache MISS: ${cacheKey}`);
         }
     } catch (cacheErr) {
-        // Silent fail for cache - continue to API
+        // Silent fail - proceed to API
     }
 
     // ============================================
-    // 2. BUILD PROMPT (Only if cache miss)
+    // 2. BUILD PROMPT
     // ============================================
     let prompt = '';
     if (mode === 'STEP_BY_STEP') {
@@ -194,8 +170,13 @@ export async function POST(req: Request) {
             console.log(`ℹ️ [API] Fallback mode: ${apiError.message?.substring(0, 50)}`);
         }
 
-        // Get rich offline content from fallbackData.ts
-        const offlineExplanation = getFallbackContent(topic, currentLevel);
+        // Get rich offline content - prioritize Kotak Misteri for Aljabar
+        let offlineExplanation = DEFAULT_FALLBACK;
+        if (topic?.toLowerCase() === 'aljabar') {
+            offlineExplanation = KOTAK_MISTERI_FALLBACK;
+        } else {
+            offlineExplanation = getFallbackContent(topic, currentLevel);
+        }
 
         return NextResponse.json({
             explanation: offlineExplanation,
@@ -209,37 +190,124 @@ export async function POST(req: Request) {
 // PROMPT BUILDERS
 // ============================================
 function buildStepByStepPrompt(text: string, topic: string, style: string): string {
-    return `Jelaskan konsep matematika ini dengan detail:
+    if (style === 'KINESTHETIC') {
+        return `Kamu adalah Lumi, instruktur latihan matematika yang energik. Fokus pada "Learning by Doing".
+        
+**Konteks:** Siswa Kinestetik sedang belajar "${topic}" dan ingin mempraktikkan: "${text}"
 
-**Materi:** ${text}
-**Topik:** ${topic}
+**OUTPUT FORMAT (Markdown):**
+Gunakan format berikut secara ketat:
 
-FORMAT WAJIB:
-### 💡 [Judul]
+# Ayo kita praktikkan! 🖐️✨
+[Sapaan semangat 1 kalimat]
 
-**Analogi Dunia Nyata**: [1 paragraf relate dengan kehidupan siswa SMA]
+## 🎯 Misi Latihan
+[Deskripsi singkat aktivitas fisik yang akan dilakukan]
 
-**Langkah Penyelesaian**:
-1. [Langkah 1 dengan penjelasan]
-2. [Langkah 2]
-3. [Langkah 3]
+### LANGKAH 1: Persiapan Objek 🛠️
+[Instruksi ambil benda nyata]
 
-**Rumus**: $$[LaTeX format]$$
+### LANGKAH 2: Eksekusi Manipulasi ⚡
+[Instruksi geser/pisahkan benda]
 
-**Tips Mengingat**: [1 kalimat catchy]
+### LANGKAH 3: Pembuktian Fisik 🔍
+[Hitung sisa benda]
 
-Bahasa Indonesia ramah. Max 200 kata. Semua rumus pakai $$...$$.`;
+> Mari kita buktikan! Jumlah benda yang tersisa adalah jawaban dari rumus. ✅
+
+$$ [Rumus Matematika Akhir] $$
+
+**Tips**: "Gerakkan tanganmu agar ingatannya menempel!" 💪💙
+---
+Bahasa Indonesia, instruktif, penuh emoji.`;
+    }
+
+    if (style === 'VISUAL') {
+        return `Kamu adalah Lumi, teman belajar yang jago memvisualisasikan konsep. 
+        
+**Konteks:** Siswa Visual belajar "${topic}" tentang: "${text}"
+
+**OUTPUT FORMAT (Markdown):**
+Gunakan format berikut secara ketat:
+
+# Hai! Matamu Tajam Sekali! 👁️✨
+[Sapaan apresiatif 1 kalimat]
+
+## 🎯 Analogi Kotak Misteri
+[Jelaskan konsep dengan visualisasi "Kotak Kado" atau "Timbangan". Gunakan emoji yang relevan.]
+
+### LANGKAH 1: Visualisasi Masalah 🎨
+[Gambarkan masalah dengan objek visual. Jangan pakai rumus dulu.]
+
+### LANGKAH 2: Strategi Mengisolasi 🧩
+[Jelaskan bagaimana kita "membuang" pengganggu visual (misal: kurangi 2 bola di kiri & kanan).]
+*Gunakan **bold** untuk kata kunci aksi.*
+
+### LANGKAH 3: Membuka Kotak 🎁
+[Hasil akhir setelah isolasi.]
+
+> Mari kita buktikan! Jika kita masukkan kembali nilai ini ke kotak awal, timbangan pasti seimbang. ✅
+
+$$ [Tulis Solusi Akhir: x = ...] $$
+
+"Sekarang semuanya terlihat jelas kan? Siap level selanjutnya! 👁️💙"
+---
+Bahasa Indonesia, deskriptif visual, terstruktur.`;
+    }
+
+    // Default (Auditory/General)
+    return `Kamu adalah Lumi, chatbot teman belajar yang ceria dan suportif. Kamu ahli menjelaskan matematika dengan analogi menyenangkan.
+
+**Konteks:** Siswa SMA sedang belajar "${topic}" dan BINGUNG tentang: "${text}"
+
+**INSTRUKSI WAJIB:**
+
+1. **Sapaan Lumi**: Mulai dengan "Hai! Aku Lumi, dan aku akan bantu kamu! ✨"
+
+2. **Analogi Kotak Misteri**:
+   - Jelaskan konsep seperti permainan tebak-tebakan
+   - Contoh: "Bayangkan x sebagai kotak misteri yang isinya belum kita tahu..."
+   - Gunakan nada ceria: "Tenang, ${topic} itu seru! Ayo kita pecahkan bersama..."
+
+3. **Langkah Penyelesaian Terstruktur**:
+   
+   **📌 LANGKAH 1: Persamaan Awal**
+   [Tulis persamaan yang diberikan dengan jelas]
+   
+   **📌 LANGKAH 2: Mencari Isi Kotak**
+   [Jelaskan proses menemukan nilai variabel step by step]
+   
+   **📌 LANGKAH 3: Solusi Akhir**
+   [Tuliskan jawaban final dan verifikasi]
+
+4. **Rumus dengan LaTeX**: Semua rumus WAJIB pakai format $$...$$ 
+   Contoh: $$x = \\frac{8}{2} = 4$$
+
+5. **Penutup Lumi**: "Lumi bangga padamu! Kita taklukkan level berikutnya bersama! 💙"
+
+---
+Bahasa Indonesia yang ceria seperti teman sebaya. Max 250 kata.`;
 }
 
 function buildWelcomePrompt(topic: string, style: string): string {
-    return `Sapaan singkat (2 kalimat) untuk siswa mulai belajar "${topic}". 
-Gaya ${style}. Bahasa Indonesia, ramah, memotivasi.`;
+    return `Kamu adalah Lumi, chatbot teman belajar. Buat sapaan singkat (2 kalimat) untuk siswa mulai belajar "${topic}". 
+Contoh: "Halo! Aku Lumi. Mari kita taklukkan ${topic} bersama dengan gaya belajar ${style} favoritmu! ✨"
+Bahasa Indonesia, ceria, ramah seperti teman.`;
 }
 
 function buildReportPrompt(text: string): string {
-    return `Analisis singkat (3 kalimat) data siswa: "${text}"
-1. Akui emosi mereka
-2. Hubungkan dengan performa
-3. Beri 1 tips spesifik
-Nada hangat dan profesional.`;
+    return `Kamu adalah Lumi, analis pendidikan AI yang cerdas dan empatik.
+    
+**DATA SISWA:**
+${text}
+
+**TUGAS:**
+Berikan laporan evaluasi belajar yang komprehensif dan memotivasi dengan struktur berikut:
+
+1. **🌟 Kekuatan Utama**: Sebutkan 2-3 hal yang sudah sangat baik.
+2. **🔍 Area Fokus**: Sebutkan 1-2 hal yang perlu ditingkatkan (berdasarkan akurasi/emosi).
+3. **💡 Strategi Minggu Ini**: Berikan saran konkret untuk aksi selanjutnya.
+
+Berikan analisis yang personal, profesional tapi hangat (Persona Lumi). Hindari jargon teknis yang membingungkan.
+Bahasa Indonesia. Gunakan markdown untuk poin-poin.`;
 }

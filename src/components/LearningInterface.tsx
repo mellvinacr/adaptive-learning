@@ -66,18 +66,30 @@ export default function LearningInterface({ initialLevel = 1, learningStyle = 'T
     const [showToast, setShowToast] = useState(false);
     const [welcomeMessage, setWelcomeMessage] = useState<string | null>(null);
     const [isOffline, setIsOffline] = useState(false); // Track offline/fallback mode
+    const [isMuted, setIsMuted] = useState(false); // Audio Mute State
 
     // Queue & Anti-Spam (Track latest request)
     const requestRef = useRef<number>(0);
 
     const handleSpeak = (text: string) => {
+        if (isMuted) return; // Respect Mute
         if ('speechSynthesis' in window) {
-            window.speechSynthesis.cancel();
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = 'id-ID';
-            utterance.rate = 1.0;
-            window.speechSynthesis.speak(utterance);
+            if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
+                window.speechSynthesis.cancel();
+            } else {
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'id-ID';
+                utterance.rate = 1.0;
+                window.speechSynthesis.speak(utterance);
+            }
         }
+    };
+
+    const toggleMute = () => {
+        if (!isMuted) {
+            window.speechSynthesis.cancel();
+        }
+        setIsMuted(prev => !prev);
     };
 
     useEffect(() => {
@@ -104,8 +116,8 @@ export default function LearningInterface({ initialLevel = 1, learningStyle = 'T
         const fetchWelcome = async () => {
             if (!topic) return;
 
-            // Check Cache
-            const cacheKey = `WELCOME_${topic}_${level}_${learningStyle}`;
+            // Check Cache (Version 2 for Premium UI)
+            const cacheKey = `WELCOME_${topic}_${level}_${learningStyle}_v2`;
             try {
                 const cacheDoc = await getDoc(doc(db, 'materi_cache', cacheKey));
                 if (cacheDoc.exists()) {
@@ -218,7 +230,7 @@ export default function LearningInterface({ initialLevel = 1, learningStyle = 'T
 
         setIsExplaining(true);
         const fragmentId = fragments[currentIndex].id || `frag-${currentIndex}`;
-        const cacheKey = `${topic}-${level}-${fragmentId}`.replace(/\s+/g, '_');
+        const cacheKey = `${topic}-${level}-${fragmentId}_v2`.replace(/\s+/g, '_');
 
         const requestId = Date.now();
         requestRef.current = requestId;
@@ -236,7 +248,19 @@ export default function LearningInterface({ initialLevel = 1, learningStyle = 'T
                 const docRef = doc(db, 'materi_cache', cacheKey);
                 const docSnap = await getDoc(docRef);
                 if (docSnap.exists()) {
-                    cachedExplanation = docSnap.data().explanation;
+                    const cached = docSnap.data().explanation || '';
+
+                    // VALIDATION: Reject old non-Lumi cached content
+                    const invalidPhrases = ['Halo calon', 'Guru Motivator', 'Ibu/Bapak', 'Sistem sedang sibuk'];
+                    const hasInvalidContent = invalidPhrases.some(phrase =>
+                        cached.toLowerCase().includes(phrase.toLowerCase())
+                    );
+
+                    if (!hasInvalidContent && cached.length > 50) {
+                        cachedExplanation = cached;
+                    } else {
+                        console.log('⚠️ Client cache invalid (old format), proceeding to API');
+                    }
                 }
             } catch (cacheErr) {
                 console.warn("Cache read skipped:", cacheErr);
@@ -244,6 +268,7 @@ export default function LearningInterface({ initialLevel = 1, learningStyle = 'T
 
             if (cachedExplanation) {
                 setExplanation(cachedExplanation);
+                setIsOffline(true); // Mark as from cache
             } else {
                 // If API not ready and no cache, wait or fail
                 if (!isReady) {
@@ -286,46 +311,68 @@ export default function LearningInterface({ initialLevel = 1, learningStyle = 'T
                         fragmentId,
                         timestamp: new Date()
                     }).catch(e => console.warn("Cache write skipped", e));
+
+                    // Log "Saya Bingung" interaction to sessions for analytics
+                    if (user?.uid) {
+                        addDoc(collection(db, 'users', user.uid, 'sessions'), {
+                            type: 'BINGUNG',
+                            topic,
+                            level,
+                            fragmentId,
+                            learningStyle,
+                            isOffline: data.isOffline || false,
+                            timestamp: new Date()
+                        }).catch(e => console.warn("Session log skipped", e));
+                    }
                 }
             }
         } catch (error: any) {
             console.error(error);
             if (requestRef.current !== requestId) return;
 
-            // Fallback Logic
+            // Fallback Logic - All Lumi branded
             if (error.message === "API_BUSY" || (error.message && error.message.includes("Limit"))) {
                 setShowToast(true);
-                setExplanation(`
-### 🤖 Gemini Sedang 'Mengambil Napas'...
-**"Sistem sedang sibuk karena antusiasme belajar yang tinggi! Tunggu sebentar ya."**
+                setExplanation(`### ✨ Lumi Sedang Mengisi Energi...
 
-Sobil menunggu koneksi lancar kembali, coba panduan manual ini:
+**Hai! Aku Lumi!** Sepertinya banyak teman yang sedang belajar bersamaku sekarang, jadi aku butuh istirahat sebentar! 💙
 
-**Tips Belajar Mandiri:**
+Tapi tenang, sambil menunggu, coba tips ini dari Lumi:
+
+**📝 Tips Belajar Mandiri dari Lumi:**
 1. **Analisa Soal**: Baca kalimat soal perlahan, tandai kata kuncinya.
-2. **Visualisasi**: Coba gambar masalahnya di kertas buram.
-3. **Cek Rumus**: Lihat kembali rumus dasar di tombol "Rumus" pada menu bawah.
+2. **Visualisasi**: Coba gambar masalahnya di kertas - Lumi yakin kamu bisa!
+3. **Cek Rumus**: Lihat kembali rumus dasar di catatan atau buku.
 
-*Coba klik tombol "Saya Bingung" lagi dalam 1-2 menit.*
+---
+
+> *"Setiap master dulunya adalah pemula yang tidak pernah menyerah!"* 🌟
+
+**Coba klik "Saya Bingung" lagi dalam 1-2 menit ya! Lumi akan segera kembali!** 💙
 `);
+                setIsOffline(true);
             } else {
-                setExplanation(`
-### 📚 Panduan Cepat: ${topic} (Mode Offline)
+                setExplanation(`### ✨ Hai! Lumi di sini untukmu!
 
-Sistem AI sedang tidak dapat dijangkau, namun berikut ringkasan umum untuk membantumu:
+**Lumi** sedang mengisi energi sebentar, tapi aku sudah siapkan panduan untuk topik **${topic}**! 💙
 
-**Konsep Inti:**
+---
+
+**🎯 Konsep Inti:**
 Materi **${topic}** biasanya berfokus pada pola dan logika langkah demi langkah.
 
-**Strategi Penyelesaian:**
+**📌 Strategi dari Lumi:**
 1. **Identifikasi Variabel**: Apa yang diketahui? Apa yang dicari?
 2. **Sederhanakan**: Pecah masalah besar menjadi bagian-bagian kecil.
-3. **Verifikasi**: Masukkan kembali jawabanmu ke dalam soal untuk mengecek kebenarannya.
+3. **Verifikasi**: Masukkan kembali jawabanmu ke dalam soal.
+
+---
 
 $$ \\text{Sukses} = \\text{Usaha} + \\text{Konsistensi} $$
 
-*Tetap semangat! Kamu bisa menyelesaikan ini dengan logika dasarmu.*
+**Lumi percaya padamu! Kamu pasti bisa menyelesaikan ini!** 💙
 `);
+                setIsOffline(true);
             }
         } finally {
             if (requestRef.current === requestId) {
@@ -410,7 +457,7 @@ $$ \\text{Sukses} = \\text{Usaha} + \\text{Konsistensi} $$
                 <div className="absolute top-4 right-4 z-50 bg-amber-500 text-white px-4 py-3 rounded-xl shadow-xl animate-bounce-in flex items-center gap-3">
                     <span className="text-2xl">😴</span>
                     <div>
-                        <p className="font-bold text-sm">Gemini Sedang Istirahat</p>
+                        <p className="font-bold text-sm">Lumi Sedang Mengisi Energi</p>
                         <p className="text-xs text-amber-100">Coba lagi dalam {cooldown} detik ya!</p>
                     </div>
                     <button onClick={() => setShowToast(false)} className="text-amber-200 hover:text-white font-bold ml-2">✕</button>
@@ -476,61 +523,168 @@ $$ \\text{Sukses} = \\text{Usaha} + \\text{Konsistensi} $$
                         </div>
                     )}
 
-                    {/* AI Explanation Card */}
+                    {/* Lumi AI Explanation Card */}
                     {(explanation || isExplaining) && (
-                        <div className="mb-10 bg-[#FFFDF2] border border-amber-100 p-8 sm:p-10 rounded-[2.5rem] animate-fade-in relative shadow-sm">
-                            <div className="flex items-center justify-between gap-3 mb-6">
-                                <div className="flex items-center gap-3">
-                                    <div className="bg-amber-100 text-amber-600 w-12 h-12 rounded-xl flex items-center justify-center text-2xl shadow-inner">
-                                        {isExplaining ? '⏳' : isOffline ? '📦' : '💡'}
+                        <div className={`mb-10 ${isOffline ? 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200' : 'bg-gradient-to-br from-blue-50 to-indigo-100 border-blue-100'} border p-8 sm:p-10 rounded-[2.5rem] animate-fade-in relative shadow-sm`}>
+                            {/* Header Controls: Status & Mute */}
+                            {!isExplaining && (
+                                <div className="absolute top-6 right-6 flex items-center gap-3 z-20">
+                                    {/* Mute Button */}
+                                    {learningStyle === 'AUDITORY' && (
+                                        <button
+                                            onClick={toggleMute}
+                                            className={`p-2 rounded-full transition-all border ${isMuted ? 'bg-slate-100 text-slate-400 border-slate-200' : 'bg-white text-blue-600 border-blue-100 shadow-sm hover:shadow-md'}`}
+                                            title={isMuted ? "Unmute Suara" : "Mute Suara"}
+                                        >
+                                            {isMuted ? '🔇' : '🔊'}
+                                        </button>
+                                    )}
+
+                                    {/* Status Indicator */}
+                                    <div className={`px-3 py-1.5 ${isOffline ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-emerald-100 text-emerald-700 border-emerald-200'} text-[10px] font-bold uppercase tracking-widest rounded-full border flex items-center gap-1.5`}>
+                                        <span className={`w-2 h-2 ${isOffline ? 'bg-amber-400' : 'bg-emerald-500'} rounded-full ${isOffline ? 'animate-pulse' : ''}`}></span>
+                                        {isOffline ? 'OFFLINE' : 'ONLINE'}
                                     </div>
-                                    <h3 className="text-xl font-black text-slate-900 tracking-tight">
-                                        {isExplaining ? 'Guru Motivator sedang mengetik...' : `Ulasan Khusus: Konsep Visual ${topic}`}
-                                    </h3>
                                 </div>
-                                {isOffline && !isExplaining && (
-                                    <span className="px-3 py-1 bg-amber-100 text-amber-700 text-[10px] font-bold uppercase tracking-widest rounded-full border border-amber-200">
-                                        📴 Offline Mode
-                                    </span>
-                                )}
+                            )}
+
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="flex items-center gap-3">
+                                    {/* Lumi Avatar - Awake (✨) vs Sleeping (😴) vs Practice (🛠️) */}
+                                    <div className={`${isOffline ? 'bg-gradient-to-br from-amber-400 to-orange-500' : (learningStyle === 'KINESTHETIC' ? 'bg-gradient-to-br from-emerald-500 to-teal-600' : 'bg-gradient-to-br from-blue-500 to-indigo-600')} text-white w-14 h-14 rounded-full flex items-center justify-center text-2xl shadow-lg border-4 border-white`}>
+                                        {isExplaining ? '⏳' : isOffline ? '😴' : (learningStyle === 'KINESTHETIC' ? '🛠️' : '✨')}
+                                    </div>
+                                    <div>
+                                        <h3 className="text-xl font-black text-slate-900 tracking-tight">
+                                            {isExplaining
+                                                ? 'Lumi sedang mengetik...'
+                                                : isOffline
+                                                    ? 'Lumi sedang beristirahat sejenak 💤'
+                                                    : `Hai! Aku Lumi, Teman Belajarmu! 💙`}
+                                        </h3>
+                                        <p className={`${isOffline ? 'text-amber-600' : 'text-blue-600'} text-sm font-medium mt-0.5`}>
+                                            {isExplaining
+                                                ? 'Tunggu sebentar ya...'
+                                                : isOffline
+                                                    ? 'Gunakan catatan di bawah untuk membantumu! 📝'
+                                                    : `Ini penjelasan khusus tentang ${topic} untukmu!`}
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
 
                             <div className="prose prose-slate prose-lg max-w-none text-slate-700 leading-relaxed font-medium">
                                 {isExplaining ? (
                                     // Skeleton Loading
                                     <div className="space-y-4 animate-pulse">
-                                        <div className="h-4 bg-amber-200/50 rounded w-3/4"></div>
-                                        <div className="h-4 bg-amber-200/50 rounded w-full"></div>
-                                        <div className="h-4 bg-amber-200/50 rounded w-5/6"></div>
-                                        <div className="h-24 bg-amber-100/50 rounded-xl w-full mt-4"></div>
+                                        <div className="h-4 bg-blue-200/50 rounded w-3/4"></div>
+                                        <div className="h-4 bg-blue-200/50 rounded w-full"></div>
+                                        <div className="h-4 bg-blue-200/50 rounded w-5/6"></div>
+                                        <div className="h-24 bg-blue-100/50 rounded-xl w-full mt-4"></div>
                                     </div>
                                 ) : (
-                                    <ReactMarkdown
-                                        remarkPlugins={[remarkMath, remarkGfm]}
-                                        rehypePlugins={[rehypeKatex]}
-                                        components={{
-                                            strong: ({ node, ...props }: any) => <span className="font-extrabold text-slate-900 bg-amber-50 px-1 rounded" {...props} />,
-                                            ul: ({ node, ...props }: any) => <ul className="list-disc pl-5 space-y-2 my-4" {...props} />,
-                                            li: ({ node, ...props }: any) => <li className="pl-2" {...props} />,
-                                            code: ({ node, ...props }: any) => <code className="bg-slate-100 text-pink-600 px-2 py-1 rounded-md font-mono text-sm border border-slate-200" {...props} />
-                                        }}>
-                                        {explanation || ""}
-                                    </ReactMarkdown>
+                                    <div className={`${isOffline ? 'bg-white/70' : 'bg-white/50'} p-6 rounded-2xl border ${isOffline ? 'border-amber-100' : 'border-blue-100'}`}>
+                                        <ReactMarkdown
+                                            remarkPlugins={[remarkMath, remarkGfm]}
+                                            rehypePlugins={[rehypeKatex]}
+                                            components={{
+                                                // 1. Title (H1) - Centered & Bold
+                                                h1: ({ node, ...props }: any) => <h1 className="text-3xl font-black text-slate-900 mb-8 pb-6 border-b-4 border-blue-50 text-center leading-tight" {...props} />,
+
+                                                // 2. Sub-Heading (H2) - Emoji compatible & Clear separation
+                                                h2: ({ node, ...props }: any) => <h2 className="text-xl font-bold text-slate-800 mt-10 mb-5 flex items-center gap-3 pb-2 border-b border-slate-100" {...props} />,
+
+                                                // 3. Step Header (H3) - Structured Steps (LANGKAH X)
+                                                h3: ({ node, ...props }: any) => <h3 className="text-sm font-black text-slate-500 uppercase tracking-widest mt-8 mb-4 flex items-center gap-2 before:content-[''] before:w-8 before:h-0.5 before:bg-blue-200" {...props} />,
+
+                                                // 4. Smart Blockquote (Verification vs Tips)
+                                                blockquote: ({ node, ...props }: any) => {
+                                                    // Simple heuristic to detect Verification content
+                                                    // Check if first paragraph text contains specific keywords
+                                                    const textContent = node.children?.[0]?.children?.[0]?.value || "";
+                                                    const isVerification = textContent.includes("buktikan") || textContent.includes("✅");
+
+                                                    if (isVerification) {
+                                                        return (
+                                                            <div className="my-8 bg-emerald-50 border-l-4 border-emerald-500 rounded-r-2xl p-6 relative overflow-hidden group">
+                                                                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                                                                    <span className="text-6xl">✅</span>
+                                                                </div>
+                                                                <div className="relative z-10 flex gap-4">
+                                                                    <div className="shrink-0 w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold">✓</div>
+                                                                    <blockquote className="text-slate-700 italic font-medium leading-loose" {...props} />
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    }
+
+                                                    // Default: Tips / Info Box (Blue)
+                                                    return (
+                                                        <div className="my-8 bg-blue-50 border-l-4 border-blue-400 rounded-r-2xl p-6 relative overflow-hidden">
+                                                            <div className="absolute top-0 right-0 p-4 opacity-10">
+                                                                <span className="text-6xl">💡</span>
+                                                            </div>
+                                                            <div className="relative z-10 flex gap-4">
+                                                                <div className="shrink-0 w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold">💡</div>
+                                                                <blockquote className="text-slate-700 italic font-medium leading-loose" {...props} />
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                },
+
+                                                // 5. Highlight (Strong/Bold) - Yellow Background
+                                                strong: ({ node, ...props }: any) => <span className="font-extrabold text-slate-900 bg-yellow-100 px-1.5 py-0.5 rounded box-decoration-clone" {...props} />,
+
+                                                // 6. Spacing & Lists
+                                                p: ({ node, ...props }: any) => <p className="leading-loose mb-6 text-lg text-slate-600 font-medium" {...props} />,
+                                                ul: ({ node, ...props }: any) => <ul className="space-y-4 my-6 pl-2" {...props} />,
+                                                li: ({ node, ...props }: any) => (
+                                                    <li className="flex gap-3 items-start p-4 bg-white rounded-2xl shadow-sm border border-slate-50 hover:border-blue-100 transition-colors group">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-2.5 shrink-0 group-hover:scale-125 transition-transform"></span>
+                                                        <span className="leading-relaxed" {...props} />
+                                                    </li>
+                                                ),
+
+                                                // 7. Inline Code & Tables
+                                                code: ({ node, inline, ...props }: any) => inline
+                                                    ? <code className="bg-slate-100 text-blue-600 px-2 py-1 rounded-lg font-bold font-mono text-sm border border-slate-200" {...props} />
+                                                    : <pre className="bg-slate-900 text-slate-50 p-6 rounded-2xl overflow-x-auto my-6 shadow-xl"><code {...props} /></pre>,
+                                                table: ({ node, ...props }: any) => <div className="overflow-x-auto my-8 rounded-xl border border-slate-200 shadow-sm"><table className="w-full text-left text-sm" {...props} /></div>,
+                                                thead: ({ node, ...props }: any) => <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-widest" {...props} />,
+                                                th: ({ node, ...props }: any) => <th className="px-6 py-4 font-black" {...props} />,
+                                                td: ({ node, ...props }: any) => <td className="px-6 py-4 border-b border-slate-50" {...props} />,
+                                            }}
+                                        >
+                                            {/* Fix: Ensure newlines are treated as block breaks by adding double newlines if needed, or unescaping \\n */}
+                                            {explanation ? explanation.replace(/\\n/g, '\n').replace(/\n/g, '\n\n') : ''}
+                                        </ReactMarkdown>
+                                    </div>
+
                                 )}
                             </div>
 
                             {!isExplaining && (
-                                <div className="mt-8 pt-6 border-t border-amber-100/50 flex justify-end">
+                                <div className="mt-8 pt-6 border-t border-slate-100/50 flex justify-between items-center gap-4">
+                                    {/* Coba Lagi Nanti Button - Only show when offline */}
+                                    {isOffline && (
+                                        <button
+                                            onClick={handleBingung}
+                                            className="px-5 py-2.5 bg-amber-100 text-amber-700 font-bold rounded-xl border-2 border-amber-200 hover:bg-amber-200 hover:border-amber-300 transition-all text-sm uppercase tracking-widest shadow-sm flex items-center gap-2"
+                                        >
+                                            🔄 Coba Lagi
+                                        </button>
+                                    )}
                                     <button
                                         onClick={() => setExplanation(null)}
-                                        className="px-6 py-3 bg-white text-slate-700 font-bold rounded-xl border-2 border-slate-100 hover:border-amber-400 hover:text-amber-700 transition-all text-sm uppercase tracking-widest shadow-sm hover:shadow-md"
+                                        className={`px-6 py-3 bg-white text-slate-700 font-bold rounded-xl border-2 border-slate-100 hover:border-blue-400 hover:text-blue-700 transition-all text-sm uppercase tracking-widest shadow-sm hover:shadow-md ${!isOffline ? 'ml-auto' : ''}`}
                                     >
                                         Saya Paham, Lanjutkan Belajar 👍
                                     </button>
                                 </div>
                             )}
                         </div>
-                    )}
+                    )
+                    }
 
                     <div className="mt-auto pt-8 flex gap-4">
                         <button
@@ -541,7 +695,7 @@ $$ \\text{Sukses} = \\text{Usaha} + \\text{Konsistensi} $$
                                     ? 'bg-amber-50 text-amber-500 border-amber-200 cursor-not-allowed'
                                     : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-red-50 hover:text-red-500 hover:border-red-200'}`}
                         >
-                            {isExplaining ? '💭 Gemini sedang merangkum...' : '🤔 Saya Bingung'}
+                            {isExplaining ? '✨ Lumi sedang mengetik...' : '🤔 Saya Bingung'}
                         </button>
                         <button
                             onClick={handleNextFragment}
@@ -559,7 +713,7 @@ $$ \\text{Sukses} = \\text{Usaha} + \\text{Konsistensi} $$
                             Lewati Materi & Kerjakan Kuis ⏩
                         </button>
                     </div>
-                </div>
+                </div >
             )}
 
             {/* PHASE: QUIZ */}
@@ -736,6 +890,6 @@ $$ \\text{Sukses} = \\text{Usaha} + \\text{Konsistensi} $$
                     </div>
                 )
             }
-        </div>
+        </div >
     );
 }

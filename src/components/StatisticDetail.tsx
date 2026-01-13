@@ -3,6 +3,7 @@ import { db } from '@/lib/firebase';
 import { collection, query, orderBy, getDocs, limit } from 'firebase/firestore';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend } from 'recharts';
 import ReactMarkdown from 'react-markdown';
+import jsPDF from 'jspdf';
 
 interface StatisticDetailProps {
     user: any;
@@ -109,18 +110,35 @@ export default function StatisticDetail({ user, onBack }: StatisticDetailProps) 
     const generateInsight = async (eData: any[], tData: any[]) => {
         setInsightLoading(true);
         try {
-            // Prepare summary for AI
+            // Prepare comprehensive summary for AI
             const topEmotion = eData.reduce((prev, current) => (prev.A > current.A) ? prev : current).subject;
             const avgAccuracy = tData.reduce((sum, item) => sum + item.accuracy, 0) / tData.length || 0;
+            const totalHours = tData.reduce((sum, item) => sum + (item.hours || 0), 0).toFixed(1);
+            const emotionSummary = eData.map(e => `${e.subject}: ${e.A}`).join(', ');
 
             const res = await fetch('/api/adaptive', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     mode: 'REPORT',
-                    text: `Analyze this student: Dominant Emotion: ${topEmotion}. Average Accuracy: ${Math.round(avgAccuracy)}%. Trend data available.`,
-                    topic: 'General Progress',
-                    style: 'Normal' // Not used for report but required by schema
+                    text: `Kamu adalah Lumi, chatbot teman belajar yang ceria dan suportif. Buat laporan PERSONAL untuk siswa:
+
+**Data Siswa:**
+- Emosi Dominan: ${topEmotion}
+- Peta Emosi Lengkap: ${emotionSummary}
+- Akurasi Jawaban: ${Math.round(avgAccuracy)}%
+- Total Waktu Belajar: ${totalHours} jam
+
+**FORMAT WAJIB:**
+1. **Sapaan Lumi**: Mulai dengan "Hai [Nama]! Aku Lumi, teman belajarmu! ✨"
+2. **Interpretasi Emosi Plutchik**: Jelaskan emosi dominan dengan positif (Contoh: "Berdasarkan diagram Plutchik, aku melihat kamu merasa '${topEmotion}' - itu artinya [interpretasi positif]!")
+3. **Apresiasi Berbasis Data**: "Akurasi kuis kamu ${Math.round(avgAccuracy)}%! ${Math.round(avgAccuracy) >= 80 ? 'Luar biasa!' : 'Sedikit lagi, kamu pasti bisa!'}"
+4. **Rekomendasi Spesifik**: Saran konkret berdasarkan data
+5. **Penutup Lumi**: "Semangat! Lumi selalu di sini untukmu! 🌟"
+
+Gunakan emoji ceria. Bahasa Indonesia ramah seperti teman sebaya. Max 200 kata.`,
+                    topic: 'Laporan Lumi',
+                    style: 'VISUAL'
                 })
             });
             const json = await res.json();
@@ -130,12 +148,104 @@ export default function StatisticDetail({ user, onBack }: StatisticDetailProps) 
             }
         } catch (e) {
             console.error("AI Insight failed", e);
-            // Fallback insight when API fails
-            setAiInsight("**Analisis Offline**: Berdasarkan data yang tersimpan, kamu menunjukkan konsistensi dalam belajar. Terus pertahankan ritme ini! Fokus pada topik yang membuatmu sedikit cemas untuk meningkatkan kepercayaan diri.");
+            // Lumi offline fallback when API fails
+            setAiInsight(`### ✨ Hai! Aku Lumi, Teman Belajarmu!
+
+**Lumi** sedang mengisi energi sebentar, tapi tenang, aku sudah menyimpan catatan penting untukmu di sini...
+
+---
+
+**🎭 Tentang Emosimu:**
+
+Setiap emosi yang kamu rasakan saat belajar itu natural! Aku melihat dari datamu bahwa kamu sudah berusaha keras. Jika ada rasa cemas, itu tandanya kamu sedang **level up** - keluar dari zona nyaman! 🚀
+
+**📊 Data Pembelajaranmu:**
+
+Konsistensimu dalam belajar sudah terekarwa dengan baik. Ingat, **progress is progress**, sekecil apapun! Setiap soal yang kamu kerjakan mendekatkanmu ke level berikutnya.
+
+**💡 Rekomendasi Lumi:**
+
+Minggu depan, coba tantang dirimu di topik yang paling membuatmu penasaran. Aku yakin kamu bisa menaklukkannya!
+
+---
+
+> *"Setiap master dulunya adalah pemula yang tidak pernah menyerah."* 🌟
+
+**Lumi percaya padamu! Kita taklukkan level berikutnya bersama!** 💙`);
             setIsOffline(true);
         } finally {
             setInsightLoading(false);
         }
+    };
+
+    // PDF Export Function
+    const exportToPDF = () => {
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+
+        // Header
+        doc.setFillColor(37, 99, 235); // Electric Blue
+        doc.rect(0, 0, pageWidth, 40, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(24);
+        doc.text('Laporan Pembelajaran', pageWidth / 2, 18, { align: 'center' });
+        doc.setFontSize(12);
+        doc.text(`${user?.displayName || 'Pelajar'} - ${new Date().toLocaleDateString('id-ID')}`, pageWidth / 2, 30, { align: 'center' });
+
+        // Reset text color
+        doc.setTextColor(0, 0, 0);
+        let yPos = 55;
+
+        // Emotion Summary
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Ringkasan Emosi Plutchik', 14, yPos);
+        yPos += 10;
+
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        emotionData.forEach((e: any) => {
+            doc.text(`• ${e.subject}: ${e.A}%`, 20, yPos);
+            yPos += 6;
+        });
+        yPos += 10;
+
+        // Trend Summary
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Tren Akurasi Mingguan', 14, yPos);
+        yPos += 10;
+
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        trendData.slice(-7).forEach((t: any) => {
+            doc.text(`• ${t.name}: ${t.accuracy}% akurasi, ${t.hours} jam belajar`, 20, yPos);
+            yPos += 6;
+        });
+        yPos += 10;
+
+        // AI Insight (simplified)
+        if (aiInsight) {
+            doc.setFontSize(16);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Pesan dari Lumi', 14, yPos);
+            yPos += 10;
+
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'normal');
+            // Remove markdown and split into lines
+            const cleanInsight = aiInsight.replace(/[#*>]/g, '').substring(0, 500);
+            const lines = doc.splitTextToSize(cleanInsight, pageWidth - 28);
+            doc.text(lines, 14, yPos);
+        }
+
+        // Footer
+        doc.setFontSize(8);
+        doc.setTextColor(128, 128, 128);
+        doc.text('Generated by MathFlow Adaptive Learning Platform - Lumi AI', pageWidth / 2, 285, { align: 'center' });
+
+        // Save
+        doc.save(`Laporan_Pembelajaran_${new Date().toISOString().split('T')[0]}.pdf`);
     };
 
     if (loading) return <div className="min-h-[50vh] flex items-center justify-center text-slate-400 font-bold">Loading Statistics...</div>;
@@ -143,16 +253,26 @@ export default function StatisticDetail({ user, onBack }: StatisticDetailProps) 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-4">
                 <div>
-                    <h2 className="text-3xl font-black text-slate-900">Analisis Performa & Emosi 🧠</h2>
+                    <h2 className="text-3xl font-black text-slate-900">Analisis Performa &amp; Emosi 🧠</h2>
                     <p className="text-slate-500 font-medium">Laporan mendalam tentang gaya belajar dan psikologimu.</p>
                 </div>
-                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-[10px] font-bold uppercase tracking-widest transition-all
-                    ${isOffline ? 'bg-slate-100 text-slate-500 border-slate-200' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}
-                `}>
-                    <div className={`w-1.5 h-1.5 rounded-full ${isOffline ? 'bg-slate-400' : 'bg-emerald-500 animate-pulse'}`}></div>
-                    {isOffline ? '📦 Offline Mode' : 'Real-time Sync'}
+                <div className="flex items-center gap-3">
+                    {/* PDF Download Button */}
+                    <button
+                        onClick={exportToPDF}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm uppercase tracking-wider transition-all shadow-sm hover:shadow-md"
+                    >
+                        📄 Unduh PDF
+                    </button>
+                    {/* Sync Status */}
+                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-[10px] font-bold uppercase tracking-widest transition-all
+                        ${isOffline ? 'bg-slate-100 text-slate-500 border-slate-200' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}
+                    `}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${isOffline ? 'bg-slate-400' : 'bg-emerald-500 animate-pulse'} `}></div>
+                        {isOffline ? '📦 Offline Mode' : 'Real-time Sync'}
+                    </div>
                 </div>
             </div>
 
@@ -231,35 +351,48 @@ export default function StatisticDetail({ user, onBack }: StatisticDetailProps) 
                 </div>
             </div>
 
-            {/* 3. AI Insights Card */}
-            <div className="bg-gradient-to-br from-[#0F172A] to-[#1e293b] rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-2xl shadow-slate-900/10">
+            {/* 3. Lumi AI Insights Card - Adaptive Theme */}
+            <div className={`${isOffline ? 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200' : 'bg-gradient-to-br from-blue-50 to-indigo-100 border-blue-100'} rounded-[2.5rem] p-8 relative overflow-hidden shadow-lg border`}>
+                {/* Status Mode Label - Top Right Corner */}
+                {!insightLoading && (
+                    <div className={`absolute top-4 right-4 px-3 py-1.5 ${isOffline ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-emerald-100 text-emerald-700 border-emerald-200'} text-[10px] font-bold uppercase tracking-widest rounded-full border flex items-center gap-1.5 z-20`}>
+                        <span className={`w-2 h-2 ${isOffline ? 'bg-amber-400' : 'bg-emerald-500'} rounded-full ${isOffline ? 'animate-pulse' : ''}`}></span>
+                        {isOffline ? 'OFFLINE MODE' : 'ONLINE MODE'}
+                    </div>
+                )}
+
                 <div className="relative z-10">
                     <div className="flex items-center gap-4 mb-6">
-                        <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center text-2xl border border-white/10 backdrop-blur-md">
-                            🤖
+                        {/* Lumi Avatar - Changes based on state */}
+                        <div className={`w-16 h-16 rounded-full ${isOffline ? 'bg-gradient-to-br from-amber-400 to-orange-500' : 'bg-gradient-to-br from-blue-500 to-indigo-600'} flex items-center justify-center text-3xl shadow-lg border-4 border-white`}>
+                            {insightLoading ? '⏳' : isOffline ? '😴' : '🤖'}
                         </div>
                         <div>
-                            <h3 className="text-xl font-black text-white">Laporan Psikologis AI</h3>
-                            <p className="text-slate-400 text-sm font-medium">Analisis personal berdasarkan datamu.</p>
+                            <h3 className="text-xl font-black text-slate-900">
+                                {isOffline ? 'Lumi sedang beristirahat sejenak 💤' : 'Analisis & Insight AI 🧠'}
+                            </h3>
+                            <p className={`${isOffline ? 'text-amber-600' : 'text-blue-600'} text-sm font-medium`}>
+                                {isOffline ? 'Gunakan catatan di bawah untuk membantumu!' : 'Evaluasi performa belajar dan rekomendasi strategi.'}
+                            </p>
                         </div>
                     </div>
 
-                    <div className="prose prose-invert max-w-none text-slate-300 leading-relaxed text-lg">
+                    <div className={`prose prose-slate max-w-none text-slate-700 leading-relaxed text-base ${isOffline ? 'bg-white/70 border-amber-100' : 'bg-white/60 border-blue-100'} p-6 rounded-2xl border`}>
                         {insightLoading ? (
-                            <div className="flex items-center gap-2 animate-pulse text-slate-400">
-                                <span className="w-2 h-2 bg-blue-400 rounded-full"></span>
-                                Sedang menganalisis pola belajar...
+                            <div className="flex items-center gap-3 animate-pulse text-blue-600">
+                                <div className="w-8 h-8 rounded-full bg-blue-200 flex items-center justify-center">✍️</div>
+                                <span className="font-medium">Lumi sedang menulis pesan untukmu...</span>
                             </div>
                         ) : (
                             <ReactMarkdown>
-                                {aiInsight || "Belum cukup data untuk memberikan analisis mendalam. Teruskan belajarmu!"}
+                                {aiInsight || "Belum cukup data untuk memberikan analisis. Teruskan belajarmu, Lumi akan segera memberikan feedback!"}
                             </ReactMarkdown>
                         )}
                     </div>
                 </div>
                 {/* Background Decor */}
-                <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/20 rounded-full blur-3xl -mr-20 -mt-20"></div>
-                <div className="absolute bottom-0 left-0 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl -ml-12 -mb-12"></div>
+                <div className={`absolute top-0 right-0 w-64 h-64 ${isOffline ? 'bg-amber-200/30' : 'bg-blue-200/30'} rounded-full blur-3xl -mr-20 -mt-20`}></div>
+                <div className={`absolute bottom-0 left-0 w-48 h-48 ${isOffline ? 'bg-orange-200/20' : 'bg-indigo-200/20'} rounded-full blur-3xl -ml-12 -mb-12`}></div>
             </div>
 
             {/* Back Button (Usually handled by Dashboard state, but good to have) */}
