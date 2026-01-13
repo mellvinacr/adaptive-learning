@@ -1,204 +1,245 @@
-
 import { NextResponse } from 'next/server';
 import { model } from '@/lib/gemini';
+import { db } from '@/lib/firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { getFallbackContent } from './fallbackData';
 
+// ============================================
+// RICH OFFLINE CONTENT DATABASE
+// ============================================
+const OFFLINE_CONTENT: Record<string, Record<number, string>> = {
+    aljabar: {
+        1: `### 💡 Pengantar Aljabar - Level 1
+
+**Analogi Dunia Nyata**: 
+Bayangkan aljabar seperti timbangan dapur. Apa pun yang kamu lakukan di sisi kiri, harus kamu lakukan juga di sisi kanan agar tetap seimbang!
+
+**Langkah Penyelesaian Persamaan Linear**:
+1. **Identifikasi**: Temukan variabel (biasanya x) dan konstanta (angka biasa)
+2. **Kelompokkan**: Pindahkan variabel ke satu sisi, konstanta ke sisi lain
+3. **Selesaikan**: Bagi kedua sisi dengan koefisien variabel
+
+**Contoh Soal**:
+$$2x + 5 = 13$$
+- Kurangi 5 dari kedua sisi: $$2x = 8$$
+- Bagi kedua sisi dengan 2: $$x = 4$$
+
+**Tips Mengingat**: "Yang pindah rumah, ganti tanda!" 🏠➡️`,
+
+        2: `### 💡 Persamaan Linear Dua Variabel - Level 2
+
+**Analogi Dunia Nyata**:
+Seperti mencari harga 2 barang di toko. Kamu butuh 2 petunjuk (persamaan) untuk menemukan harga masing-masing!
+
+**Metode Substitusi**:
+1. Nyatakan satu variabel dalam variabel lain dari persamaan pertama
+2. Substitusikan ke persamaan kedua
+3. Selesaikan variabel yang tersisa
+4. Cari nilai variabel pertama
+
+**Metode Eliminasi**:
+1. Samakan koefisien salah satu variabel
+2. Kurangkan atau jumlahkan kedua persamaan
+3. Selesaikan variabel yang tersisa
+
+**Rumus Umum**:
+$$ax + by = c$$
+$$dx + ey = f$$
+
+**Tips**: Eliminasi lebih cepat, Substitusi lebih aman! ⚡`,
+
+        3: `### 💡 Pertidaksamaan Linear - Level 3
+
+**Konsep Kunci**:
+Pertidaksamaan seperti persamaan, tapi jawabannya berupa RANGE nilai, bukan satu angka!
+
+**Simbol Penting**:
+- $$>$$ : lebih dari
+- $$<$$ : kurang dari
+- $$\\geq$$ : lebih dari atau sama dengan
+- $$\\leq$$ : kurang dari atau sama dengan
+
+**Aturan Emas**:
+Jika mengalikan/membagi dengan bilangan NEGATIF, tanda pertidaksamaan BERBALIK!
+
+$$-2x > 6 \\Rightarrow x < -3$$
+
+**Tips Menggambar**: Garis bilangan adalah teman terbaikmu! 📏`,
+
+        4: `### 💡 Sistem Persamaan Kuadrat - Level 4
+
+**Rumus ABC (Kuadrat)**:
+$$x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$$
+
+**Langkah Penggunaan**:
+1. Tulis dalam bentuk standar: $$ax^2 + bx + c = 0$$
+2. Identifikasi nilai a, b, dan c
+3. Substitusi ke rumus ABC
+4. Hitung kedua kemungkinan (+ dan -)
+
+**Diskriminan** ($$D = b^2 - 4ac$$):
+- D > 0: Dua akar berbeda
+- D = 0: Satu akar (kembar)
+- D < 0: Tidak ada akar real
+
+**Tips**: Hafalkan rumus ABC seperti lagu! 🎵`,
+
+        5: `### 💡 Aplikasi Aljabar dalam Kehidupan - Level 5
+
+**Contoh Aplikasi**:
+1. **Ekonomi**: Menghitung break-even point bisnis
+2. **Fisika**: Persamaan gerak lurus berubah beraturan
+3. **Teknologi**: Algoritma dan pemrograman
+
+**Soal Cerita Tips**:
+1. Baca dengan teliti, tandai angka-angka penting
+2. Tentukan apa yang dicari (variabel)
+3. Tulis persamaan berdasarkan informasi
+4. Selesaikan dan periksa jawaban
+
+**Rumus Praktis**:
+$$Jarak = Kecepatan \\times Waktu$$
+$$s = v \\times t$$
+
+**Kamu sudah di level tertinggi! Luar biasa!** 🏆`
+    }
+};
+
+const DEFAULT_FALLBACK = `### 💡 Panduan Belajar
+
+**Langkah Dasar Mengerjakan Soal**:
+1. Baca soal dengan teliti
+2. Identifikasi apa yang diketahui
+3. Tentukan apa yang ditanyakan
+4. Pilih rumus yang sesuai
+5. Substitusi dan hitung
+6. Periksa jawaban
+
+*Konten offline - API akan segera tersedia!*`;
+
+// ============================================
+// API ROUTE HANDLER
+// ============================================
 export async function POST(req: Request) {
-    try {
-        console.log("⚡ [API] POST /api/adaptive received");
-        const body = await req.json();
-        console.log("📦 [API] Request Body:", JSON.stringify(body, null, 2));
-        const { text, style, topic, mode } = body;
+    const body = await req.json();
+    const { text, style, topic, mode, level } = body;
+    const currentLevel = level || 1;
 
-        if (!text) {
-            console.warn("⚠️ [API] Missing 'text' field");
-            return NextResponse.json({ error: 'Text is required' }, { status: 400 });
+    // Silent logging - only essential info
+    console.log(`📦 [API] ${mode} | ${topic} L${currentLevel} | ${style}`);
+
+    if (!text) {
+        return NextResponse.json({ error: 'Text is required' }, { status: 400 });
+    }
+
+    // ============================================
+    // 1. CACHE FIRST - Always check before API
+    // ============================================
+    const cacheKey = `${topic}_L${currentLevel}_${style}_${mode}`.replace(/\s+/g, '_');
+
+    try {
+        const cacheRef = doc(db, 'materi_cache', cacheKey);
+        const cacheDoc = await getDoc(cacheRef);
+
+        if (cacheDoc.exists()) {
+            console.log(`✅ Cache HIT: ${cacheKey}`);
+            return NextResponse.json({
+                explanation: cacheDoc.data()?.explanation,
+                fromCache: true
+            });
+        }
+    } catch (cacheErr) {
+        // Silent fail for cache - continue to API
+    }
+
+    // ============================================
+    // 2. BUILD PROMPT (Only if cache miss)
+    // ============================================
+    let prompt = '';
+    if (mode === 'STEP_BY_STEP') {
+        prompt = buildStepByStepPrompt(text, topic, style);
+    } else if (mode === 'WELCOME') {
+        prompt = buildWelcomePrompt(topic, style);
+    } else if (mode === 'REPORT') {
+        prompt = buildReportPrompt(text);
+    } else {
+        prompt = `Jelaskan singkat: "${text}". Gaya: ${style}. Bahasa Indonesia.`;
+    }
+
+    // ============================================
+    // 3. API CALL WITH SMART FALLBACK
+    // ============================================
+    try {
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const explanation = response.text();
+
+        console.log(`✅ Gemini OK (${explanation.length} chars)`);
+
+        // Cache successful response
+        try {
+            await setDoc(doc(db, 'materi_cache', cacheKey), {
+                explanation, topic, style, mode, level: currentLevel,
+                createdAt: new Date()
+            });
+        } catch (e) { /* Silent cache fail */ }
+
+        return NextResponse.json({ explanation });
+
+    } catch (apiError: any) {
+        // QUIET ERROR HANDLING - No red console spam
+        if (apiError.message?.includes("429")) {
+            console.log(`ℹ️ [API] Serving offline content (Quota limit)`);
+        } else {
+            console.log(`ℹ️ [API] Fallback mode: ${apiError.message?.substring(0, 50)}`);
         }
 
-        let prompt;
+        // Get rich offline content from fallbackData.ts
+        const offlineExplanation = getFallbackContent(topic, currentLevel);
 
-        if (mode === 'STEP_BY_STEP') {
-            // DYNAMIC PROMPT BUILDER BASED ON STYLE
-            let specificInstructions = "";
-            let outputFormat = "";
+        return NextResponse.json({
+            explanation: offlineExplanation,
+            isOffline: true,
+            retryAfter: 60
+        });
+    }
+}
 
-            if (style === 'AUDITORY') {
-                specificInstructions = `
-                - Focus on **Narrative and Flow**. Write as if you are giving a podcast or a lecture.
-                - Use "Conversational Markers" (e.g., "Listen close...", "Imagine hearing...", "So, here's the deal...").
-                - Avoid complex visual tables; use rhythmic lists instead.
-                `;
-                outputFormat = `
-                ### 🎙️ Penjelasan Audio [Nama Materi]
-                
-                **Narasi Pembuka**:
-                [A welcoming, spoken-word style intro. "Halo! Mari kita bahas..."]
-
-                **Analogi Bercerita**:
-                [A story-based analogy that flows well when read aloud.]
-
-                **Inti Materi (Gaya Ceramah)**:
-                [Explain the concept in clear, connected paragraphs. Use bold text for emphasis.]
-
-                **Bedah Rumus (Narasi)**:
-                [Explain the math formula in words first, THEN show the Latex. Example: "Untuk mencari luas, kita kalikan sisi dengan sisi. Jadi rumusnya adalah..." followed by $$L = s \\times s$$]
-
-                **Kesimpulan**:
-                [A punchy sign-off message.]
-                `;
-            } else if (style === 'KINESTHETIC') {
-                specificInstructions = `
-                - Focus on **Action, Simulation, and Real-World Application**.
-                - Frame the explanation as a "Mission" or "Experiment".
-                - Use active verbs ("Ambil", "Geser", "Bayangkan", "Hitung").
-                `;
-                outputFormat = `
-                ### 🛠️ Simulasi Praktik [Nama Materi]
-
-                **Misi Kamu Hari Ini**:
-                [Define the problem as a real-world task. e.g. "Kamu adalah arsitek yang perlu menghitung..."]
-
-                **Simulasi Langkah-demi-Langkah**:
-                1. **[Aksi 1]**: [Physical or mental action step]
-                2. **[Aksi 2]**: [Next action]
-                
-                **Eksperimen Pemahaman**:
-                [A mini-activity the user can try physically or mentally right now.]
-
-                **Bedah Rumus (Alat Bantu)**:
-                [Present the formula as a 'Tool' or 'Cheat code'. Use $$...$$ for formulas.]
-
-                **Kesimpulan**:
-                [Encourage them to try it out.]
-                `;
-            } else {
-                // DEFAULT: VISUAL
-                specificInstructions = `
-                - Focus on **Imagery, Diagrams, and Layout**.
-                - Describe visual structures clearly.
-                - Use analogies involving sight/shapes.
-                `;
-                outputFormat = `
-                ### 💡 Konsep Visual [Nama Materi]
-
-                **Analogi Kreatif**:
-                [Write 1-2 paragraphs using a vivid, fun, and memorable real-world analogy. Example: Algebra as a balance scale.]
-
-                **Visualisasi Aksi (Langkah-demi-Langkah)**:
-                1. **[Langkah 1]**: [Describe the first logical step visually]
-                2. **[Langkah 2]**: [Describe the next step]
-
-                **Bedah Rumus (Format Formal)**:
-                [Explain the math logic. CRITICAL: WRAP ALL MATH FORMULAS IN DOUBLE DOLLAR SIGNS LIKE $$x^2$$ to ensure rendering.]
-
-                **Kesimpulan**:
-                [A short, empowering closing sentence.]
-                `;
-            }
-
-            prompt = `
-Jelaskan konsep matematika ini dengan cara yang mudah dipahami:
+// ============================================
+// PROMPT BUILDERS
+// ============================================
+function buildStepByStepPrompt(text: string, topic: string, style: string): string {
+    return `Jelaskan konsep matematika ini dengan detail:
 
 **Materi:** ${text}
-**Topik:** ${topic || 'Matematika'}
+**Topik:** ${topic}
 
-Berikan penjelasan dalam format berikut:
-1. **Analogi Sederhana**: Satu kalimat analogi yang relate dengan kehidupan sehari-hari
-2. **Langkah Penyelesaian**: Jelaskan step-by-step dengan poin bernomor
-3. **Rumus**: Tulis rumus dalam format $$rumus$$
+FORMAT WAJIB:
+### 💡 [Judul]
 
-Gunakan bahasa Indonesia yang ramah dan memotivasi. Maksimal 150 kata.
-            `;
-        } else if (mode === 'WELCOME') {
-            const stylePrompt = style === 'VISUAL' ? "Mention diagrams, mind maps, or seeing the big picture." :
-                style === 'AUDITORY' ? "Invite them to listen, mention the audio feature, use a warm conversational tone." :
-                    style === 'KINESTHETIC' ? "Use action words, invite them to practice/simulate, 'Get ready to act'." :
-                        "General encouraging welcome.";
+**Analogi Dunia Nyata**: [1 paragraf relate dengan kehidupan siswa SMA]
 
-            prompt = `
-            Act as a personal AI Tutor.
-            Context: Student is starting a new level on "${topic}".
-            Style: ${style} (${stylePrompt})
+**Langkah Penyelesaian**:
+1. [Langkah 1 dengan penjelasan]
+2. [Langkah 2]
+3. [Langkah 3]
 
-            Task: Write a very short welcome message (Max 2 sentences).
-            Example Visual: "Halo! Mari kita bedah konsep ini melalui peta konsep dan diagram yang sudah saya siapkan untukmu."
-            Example Auditory: "Selamat datang kembali. Silakan tekan tombol putar di bawah, aku akan membacakan inti materi level ini khusus untukmu."
-            Example Kinestetik: "Sudah siap beraksi? Ayo kita langsung praktikkan rumus ini ke dalam studi kasus nyata!"
+**Rumus**: $$[LaTeX format]$$
 
-            Output: JUST the message text.
-            `;
-        } else if (mode === 'REPORT') {
-            prompt = `
-            Act as an Educational Psychologist and AI Tutor.
-            Analyze the following student data summary: "${text}"
+**Tips Mengingat**: [1 kalimat catchy]
 
-            Task: Provide a BRIEF, nurturing, and insightful report (Max 3-4 sentences).
-            - Acknowledge their dominant emotion (e.g., if Fear: "It's normal to feel anxious...").
-            - Connect it to their performance (e.g., "Despite the fear, your accuracy is high!").
-            - Give one specific tip for the next week.
-            - Tone: Empathetic, Professional, but Warm.
+Bahasa Indonesia ramah. Max 200 kata. Semua rumus pakai $$...$$.`;
+}
 
-            Output: Just the paragraph report.
-            `;
-        } else {
-            // STANDARD SHORT PROMPT
-            const stylePrompt = style === 'VISUAL' ? "Use strong visual imagery, metaphors of physical objects." :
-                style === 'AUDITORY' ? "Write conversationally as if speaking. Use natural rhythm." :
-                    style === 'KINESTHETIC' ? "Use active verbs and describe a physical action." :
-                        "Use clear step-by-step logic.";
+function buildWelcomePrompt(topic: string, style: string): string {
+    return `Sapaan singkat (2 kalimat) untuk siswa mulai belajar "${topic}". 
+Gaya ${style}. Bahasa Indonesia, ramah, memotivasi.`;
+}
 
-            prompt = `
-            Act as a fun Math Tutor. Explain the following concept to a student.
-            
-            Concept: "${text}"
-            
-            Student Learning Style: ${style} (${stylePrompt})
-            
-            Instructions:
-            - Use specific advice for this learning style.
-            - Keep it short (max 3 sentences).
-            - Be encouraging.
-            `;
-        }
-
-        console.log(`🤖 [API] Mode: ${mode}, Style: ${style}, Topic: ${topic}`);
-        console.log("📝 [API] Generated Prompt (Truncated):", prompt.substring(0, 200) + "...");
-
-        // Retry logic for 429 errors
-        let attempts = 0;
-        const maxAttempts = 3;
-
-        while (attempts < maxAttempts) {
-            try {
-                const result = await model.generateContent(prompt);
-                console.log("✅ [API] Gemini generation complete");
-
-                const response = await result.response;
-                const explanation = response.text();
-                console.log("📤 [API] Full Response:", explanation); // DEBUG: Print full response
-                console.log("📤 [API] Response Length:", explanation.length);
-
-                return NextResponse.json({ explanation });
-            } catch (retryError: any) {
-                attempts++;
-                if (retryError.message?.includes("429") && attempts < maxAttempts) {
-                    console.warn(`⚠️ [API] Rate limited. Retry ${attempts}/${maxAttempts} in 5s...`);
-                    await new Promise(r => setTimeout(r, 5000)); // Wait 5 seconds
-                } else {
-                    throw retryError; // Re-throw if not 429 or max attempts reached
-                }
-            }
-        }
-
-        throw new Error("Max retry attempts reached");
-    } catch (error: any) {
-        console.error("❌ [API] Error calling Gemini API:", error);
-        console.error("❌ [API] Error Details:", JSON.stringify(error, null, 2));
-        if (error.message?.includes("API key")) {
-            return NextResponse.json({ error: 'Invalid API Key' }, { status: 500 });
-        }
-        if (error.message?.includes("429")) {
-            return NextResponse.json({ error: 'Kuota API habis. Coba lagi dalam beberapa menit.', details: 'Rate limited' }, { status: 429 });
-        }
-        return NextResponse.json({ error: 'Failed to get explanation', details: error.message }, { status: 500 });
-    }
+function buildReportPrompt(text: string): string {
+    return `Analisis singkat (3 kalimat) data siswa: "${text}"
+1. Akui emosi mereka
+2. Hubungkan dengan performa
+3. Beri 1 tips spesifik
+Nada hangat dan profesional.`;
 }

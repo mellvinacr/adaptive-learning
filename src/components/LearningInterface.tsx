@@ -65,6 +65,7 @@ export default function LearningInterface({ initialLevel = 1, learningStyle = 'T
     const [loading, setLoading] = useState(true);
     const [showToast, setShowToast] = useState(false);
     const [welcomeMessage, setWelcomeMessage] = useState<string | null>(null);
+    const [isOffline, setIsOffline] = useState(false); // Track offline/fallback mode
 
     // Queue & Anti-Spam (Track latest request)
     const requestRef = useRef<number>(0);
@@ -275,6 +276,7 @@ export default function LearningInterface({ initialLevel = 1, learningStyle = 'T
 
                 if (data.explanation) {
                     setExplanation(data.explanation);
+                    setIsOffline(data.isOffline || data.fromCache || false);
                     // Cache
                     setDoc(doc(db, 'materi_cache', cacheKey), {
                         explanation: data.explanation,
@@ -477,13 +479,20 @@ $$ \\text{Sukses} = \\text{Usaha} + \\text{Konsistensi} $$
                     {/* AI Explanation Card */}
                     {(explanation || isExplaining) && (
                         <div className="mb-10 bg-[#FFFDF2] border border-amber-100 p-8 sm:p-10 rounded-[2.5rem] animate-fade-in relative shadow-sm">
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="bg-amber-100 text-amber-600 w-12 h-12 rounded-xl flex items-center justify-center text-2xl shadow-inner">
-                                    {isExplaining ? '⏳' : '💡'}
+                            <div className="flex items-center justify-between gap-3 mb-6">
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-amber-100 text-amber-600 w-12 h-12 rounded-xl flex items-center justify-center text-2xl shadow-inner">
+                                        {isExplaining ? '⏳' : isOffline ? '📦' : '💡'}
+                                    </div>
+                                    <h3 className="text-xl font-black text-slate-900 tracking-tight">
+                                        {isExplaining ? 'Guru Motivator sedang mengetik...' : `Ulasan Khusus: Konsep Visual ${topic}`}
+                                    </h3>
                                 </div>
-                                <h3 className="text-xl font-black text-slate-900 tracking-tight">
-                                    {isExplaining ? 'Guru Motivator sedang mengetik...' : `Ulasan Khusus: Konsep Visual ${topic}`}
-                                </h3>
+                                {isOffline && !isExplaining && (
+                                    <span className="px-3 py-1 bg-amber-100 text-amber-700 text-[10px] font-bold uppercase tracking-widest rounded-full border border-amber-200">
+                                        📴 Offline Mode
+                                    </span>
+                                )}
                             </div>
 
                             <div className="prose prose-slate prose-lg max-w-none text-slate-700 leading-relaxed font-medium">

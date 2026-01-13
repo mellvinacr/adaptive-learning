@@ -356,10 +356,10 @@ export default function DashboardPage() {
 
                     <div className="flex items-center gap-6">
                         <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-[10px] font-bold uppercase tracking-widest transition-all
-                            ${isReady ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100'}
+                            ${isReady ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-100 text-slate-500 border-slate-200'}
                         `}>
-                            <div className={`w-1.5 h-1.5 rounded-full ${isReady ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`}></div>
-                            {isReady ? 'API Ready' : `Wait ${cooldown}s`}
+                            <div className={`w-1.5 h-1.5 rounded-full ${isReady ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`}></div>
+                            {isReady ? 'API Ready' : cooldown > 0 ? `Wait ${cooldown}s` : '📦 Offline Mode'}
                         </div>
 
                         <div className="flex items-center gap-4 bg-slate-50 border border-slate-100 p-1.5 pr-4 rounded-full">

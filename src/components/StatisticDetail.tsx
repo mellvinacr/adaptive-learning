@@ -16,6 +16,7 @@ export default function StatisticDetail({ user, onBack }: StatisticDetailProps) 
     const [trendData, setTrendData] = useState<any[]>([]);
     const [aiInsight, setAiInsight] = useState<string | null>(null);
     const [insightLoading, setInsightLoading] = useState(false);
+    const [isOffline, setIsOffline] = useState(false);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -125,9 +126,13 @@ export default function StatisticDetail({ user, onBack }: StatisticDetailProps) 
             const json = await res.json();
             if (json.explanation) {
                 setAiInsight(json.explanation);
+                setIsOffline(json.isOffline || false);
             }
         } catch (e) {
             console.error("AI Insight failed", e);
+            // Fallback insight when API fails
+            setAiInsight("**Analisis Offline**: Berdasarkan data yang tersimpan, kamu menunjukkan konsistensi dalam belajar. Terus pertahankan ritme ini! Fokus pada topik yang membuatmu sedikit cemas untuk meningkatkan kepercayaan diri.");
+            setIsOffline(true);
         } finally {
             setInsightLoading(false);
         }
@@ -143,9 +148,11 @@ export default function StatisticDetail({ user, onBack }: StatisticDetailProps) 
                     <h2 className="text-3xl font-black text-slate-900">Analisis Performa & Emosi 🧠</h2>
                     <p className="text-slate-500 font-medium">Laporan mendalam tentang gaya belajar dan psikologimu.</p>
                 </div>
-                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-[10px] font-bold uppercase tracking-widest bg-emerald-50 text-emerald-600 border-emerald-100`}>
-                    <div className={`w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse`}></div>
-                    Real-time Sync
+                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-[10px] font-bold uppercase tracking-widest transition-all
+                    ${isOffline ? 'bg-slate-100 text-slate-500 border-slate-200' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}
+                `}>
+                    <div className={`w-1.5 h-1.5 rounded-full ${isOffline ? 'bg-slate-400' : 'bg-emerald-500 animate-pulse'}`}></div>
+                    {isOffline ? '📦 Offline Mode' : 'Real-time Sync'}
                 </div>
             </div>
 
