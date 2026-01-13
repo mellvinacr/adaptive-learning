@@ -3,6 +3,7 @@ import { model } from '@/lib/gemini';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { getFallbackContent } from './fallbackData';
+import { ExpertSystem } from '@/lib/expertSystem';
 
 // ============================================
 // HARD-CODED "KOTAK MISTERI" FALLBACK
@@ -98,7 +99,7 @@ export async function POST(req: Request) {
     // ============================================
     // 1. CACHE FIRST - Always check before API
     // ============================================
-    const cacheKey = `${topic}_L${currentLevel}_${style}_${mode}`.replace(/\\s+/g, '_');
+    const cacheKey = `${topic}_L${currentLevel}_${style}_${mode}_v2`.replace(/\s+/g, '_');
     try {
         const cacheRef = doc(db, 'materi_cache', cacheKey);
         const cacheDoc = await getDoc(cacheRef);
@@ -115,11 +116,11 @@ export async function POST(req: Request) {
                 console.log(`✅ Cache HIT (Valid): ${cacheKey}`);
                 return NextResponse.json({
                     explanation: cachedExplanation,
+                    isOffline: false,
                     fromCache: true
                 });
             } else {
                 console.log(`⚠️ Cache INVALID (Old format): ${cacheKey}`);
-                // Continue to API or fallback
             }
         } else {
             console.log(`📭 Cache MISS: ${cacheKey}`);
@@ -145,8 +146,29 @@ export async function POST(req: Request) {
     // ============================================
     // 3. API CALL WITH SMART FALLBACK
     // ============================================
+    // 3. Fallback / Static Curriculum Check (BEFORE API CALL)
+    // Check if we have static curriculum for this topic/level
+    const staticContent = ExpertSystem.getCurriculumContent(topic as string, currentLevel);
+    if (staticContent && mode === 'TEACH') {
+        const { ALJABAR_CURRICULUM } = require('@/lib/curriculumData'); // Dynamic import to avoid cycles if any
+        const levelData = ALJABAR_CURRICULUM[currentLevel];
+
+        return NextResponse.json({
+            explanation: staticContent.explanation,
+            quiz: levelData.quiz, // Return the structured quiz directly
+            isOffline: false // Treat as valid online content
+        });
+    }
+
     try {
-        const result = await model.generateContent(prompt);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout
+
+        const result = await model.generateContent({
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        });
+        clearTimeout(timeoutId);
+
         const response = await result.response;
         const explanation = response.text();
 
@@ -160,28 +182,48 @@ export async function POST(req: Request) {
             });
         } catch (e) { /* Silent cache fail */ }
 
-        return NextResponse.json({ explanation });
+        return NextResponse.json({
+            explanation,
+            isOffline: false
+        });
 
     } catch (apiError: any) {
-        // QUIET ERROR HANDLING - No red console spam
-        if (apiError.message?.includes("429")) {
+        // QUIET ERROR HANDLING
+        const isQuota = apiError.message?.includes("429");
+        if (isQuota) {
             console.log(`ℹ️ [API] Serving offline content (Quota limit)`);
         } else {
             console.log(`ℹ️ [API] Fallback mode: ${apiError.message?.substring(0, 50)}`);
         }
 
-        // Get rich offline content - prioritize Kotak Misteri for Aljabar
-        let offlineExplanation = DEFAULT_FALLBACK;
-        if (topic?.toLowerCase() === 'aljabar') {
-            offlineExplanation = KOTAK_MISTERI_FALLBACK;
+        let offlineExplanation = "";
+        let isExpertFallback = false;
+
+        if (mode === 'REPORT') {
+            // Expert System for Reports
+            const scoreMatch = text ? text.match(/Akurasi:\s*(\d+)/) : null;
+            const score = scoreMatch ? parseInt(scoreMatch[1]) : 70;
+            const emotionMatch = text ? text.match(/Emosi Dominan.*:\s*(\w+)/) : null;
+            const emotion = emotionMatch ? emotionMatch[1] : 'Neutral';
+
+            const insight = ExpertSystem.generateStaticInsight(score, emotion, topic as string, currentLevel);
+            offlineExplanation = insight.explanation;
+            isExpertFallback = true;
         } else {
-            offlineExplanation = getFallbackContent(topic, currentLevel);
+            // Content Fallback
+            if (topic?.toLowerCase().includes('aljabar') && currentLevel === 1) {
+                offlineExplanation = KOTAK_MISTERI_FALLBACK;
+                isExpertFallback = true;
+            } else {
+                offlineExplanation = getFallbackContent(topic, currentLevel) || DEFAULT_FALLBACK;
+            }
         }
 
         return NextResponse.json({
             explanation: offlineExplanation,
             isOffline: true,
-            retryAfter: 60
+            isExpertFallback,
+            retryAfter: isQuota ? 60 : 5
         });
     }
 }
@@ -295,19 +337,32 @@ Contoh: "Halo! Aku Lumi. Mari kita taklukkan ${topic} bersama dengan gaya belaja
 Bahasa Indonesia, ceria, ramah seperti teman.`;
 }
 
+// ============================================
+// PROMPT FOR 'SMART INSIGHTS' (LUMI PERSONA)
+// ============================================
 function buildReportPrompt(text: string): string {
-    return `Kamu adalah Lumi, analis pendidikan AI yang cerdas dan empatik.
-    
+    return `Kamu adalah Lumi, asisten belajar AI yang ramah, hangat, dan cerdas (Persona: Kakak Pembimbing yang suportif).
+
 **DATA SISWA:**
 ${text}
 
 **TUGAS:**
-Berikan laporan evaluasi belajar yang komprehensif dan memotivasi dengan struktur berikut:
+Buat ulasan perkembangan singkat (Max 150 kata) yang TERASA PERSONAL.
 
-1. **🌟 Kekuatan Utama**: Sebutkan 2-3 hal yang sudah sangat baik.
-2. **🔍 Area Fokus**: Sebutkan 1-2 hal yang perlu ditingkatkan (berdasarkan akurasi/emosi).
-3. **💡 Strategi Minggu Ini**: Berikan saran konkret untuk aksi selanjutnya.
+**INSTRUKSI WAJIB:**
+1. **Sapaan Hangat**: "Hai [Nama/Teman]! Lumi di sini. Senang sekali melihat progresmu..."
+2. **Analisis Emosi (Specific)**: Gunakan data emosi Plutchik.
+   - Contoh: "Aku melihat rasa *Anticipation* yang tinggi. Itu artinya kamu penasaran dan siap untuk materi baru!"
+   - Jika *Fear*: "Wajar kok merasa deg-degan. Itu tandanya kamu peduli dengan hasilmu. Yuk pelan-pelan!"
+3. **Feedback Akurasi**: Sebutkan angka akurasi secara spesifik.
+   - "Akurasi kuis kamu [X]%, keren! Tinggal sedikit lagi sentuh angka sempurna."
+4. **Saran Topik**: Berikan arah belajar selanjutnya berdasarkan Level.
 
-Berikan analisis yang personal, profesional tapi hangat (Persona Lumi). Hindari jargon teknis yang membingungkan.
-Bahasa Indonesia. Gunakan markdown untuk poin-poin.`;
+**FORMAT REFLECTIVE (Markdown):**
+- **👋 Sapaan & Validasi Emosi**: (Gabungkan sapaan dan interpretasi perasaan)
+- **📊 Bedah Performa**: (Komentari Akurasi & Waktu Belajar)
+- **💡 Tips Spesifik Lumi**: (Saran V-A-K konkrit)
+- **🚀 Penutup Semangat**: (Kalimat penutup pendek yang memotivasi)
+
+Gunakan bahasa Indonesia sehari-hari, *italic* untuk istilah emosi, dan emoji yang relevan. Jangan kaku seperti robot!`;
 }

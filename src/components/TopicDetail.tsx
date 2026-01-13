@@ -11,24 +11,29 @@ interface TopicDetailProps {
 
 // Mock Data Generator for Sub-Materials
 const getMaterials = (topicId: string) => {
+    // Helper for relative dates
+    const today = "Hari ini";
+    const yesterday = "Kemarin";
+    const daysAgo = "2 hari lalu";
+
     // Default mocks
     const defaults = [
-        { id: '1', type: 'VIDEO', title: 'Video Konsep Dasar', date: '10 Jan', comments: 12, icon: '▶️', color: 'text-red-500 bg-red-50' },
-        { id: '2', type: 'TEXT', title: 'Rangkuman Materi', date: '11 Jan', comments: 5, icon: '📄', color: 'text-blue-500 bg-blue-50' },
-        { id: '3', type: 'QUIZ', title: 'Latihan Soal Level 1', date: '12 Jan', comments: 34, icon: '✅', color: 'text-green-500 bg-green-50' },
+        { id: '1', type: 'VIDEO', title: 'Video Konsep Dasar', date: daysAgo, comments: 12, icon: '▶️', color: 'text-red-500 bg-red-50' },
+        { id: '2', type: 'TEXT', title: 'Rangkuman Materi', date: yesterday, comments: 5, icon: '📄', color: 'text-blue-500 bg-blue-50' },
+        { id: '3', type: 'QUIZ', title: 'Latihan Soal Level 1', date: today, comments: 34, icon: '✅', color: 'text-green-500 bg-green-50' },
     ];
 
-    // Specific mocks based on topic
-    if (topicId === 'aljabar') return [
-        { id: 'a1', type: 'VIDEO', title: 'Pengantar Variabel & Konstanta', date: '2 hari lalu', comments: 24, icon: '▶️', color: 'text-red-500 bg-red-50' },
-        { id: 'a2', type: 'TEXT', title: 'Operasi Hitung Aljabar', date: 'Kemarin', comments: 10, icon: '📄', color: 'text-blue-500 bg-blue-50' },
-        { id: 'a3', type: 'QUIZ', title: 'Kuis Persamaan Linear', date: 'Hari ini', comments: 56, icon: '✅', color: 'text-green-500 bg-green-50' },
+    // Specific mocks based on topic (aljabar, kalkulus, etc)
+    if (topicId?.toLowerCase().includes('aljabar')) return [
+        { id: 'a1', type: 'VIDEO', title: 'Pengantar Variabel & Konstanta', date: daysAgo, comments: 24, icon: '▶️', color: 'text-red-500 bg-red-50' },
+        { id: 'a2', type: 'TEXT', title: 'Operasi Hitung Aljabar', date: yesterday, comments: 10, icon: '📄', color: 'text-blue-500 bg-blue-50' },
+        { id: 'a3', type: 'QUIZ', title: 'Kuis Persamaan Linear', date: today, comments: 56, icon: '✅', color: 'text-green-500 bg-green-50' },
     ];
 
-    if (topicId === 'kalkulus') return [
-        { id: 'k1', type: 'VIDEO', title: 'Konsep Limit Fungsi', date: '1 minggu lalu', comments: 45, icon: '▶️', color: 'text-red-500 bg-red-50' },
-        { id: 'k2', type: 'TEXT', title: 'Rumus Dasar Turunan', date: '3 hari lalu', comments: 12, icon: '📄', color: 'text-blue-500 bg-blue-50' },
-        { id: 'k3', type: 'QUIZ', title: 'Latihan Turunan Berantai', date: 'Hari ini', comments: 8, icon: '✅', color: 'text-green-500 bg-green-50' },
+    if (topicId?.toLowerCase().includes('trigonometri')) return [
+        { id: 't1', type: 'VIDEO', title: 'Sudut & Radian', date: daysAgo, comments: 15, icon: '▶️', color: 'text-red-500 bg-red-50' },
+        { id: 't2', type: 'TEXT', title: 'Sinus, Cosinus, Tangen', date: yesterday, comments: 8, icon: '📄', color: 'text-blue-500 bg-blue-50' },
+        { id: 't3', type: 'QUIZ', title: 'Latihan Segitiga Siku-siku', date: today, comments: 22, icon: '✅', color: 'text-green-500 bg-green-50' },
     ];
 
     return defaults;

@@ -19,6 +19,9 @@ interface Fragment {
     id: string;
     order: number;
     text: string;
+    title?: string;
+    type?: 'text' | 'video' | 'quiz';
+    content?: string; // Optional alias for text if needed
 }
 
 interface QuizItem {
@@ -58,6 +61,8 @@ export default function LearningInterface({ initialLevel = 1, learningStyle = 'T
     const [currentQuizIndex, setCurrentQuizIndex] = useState(0);
     const [score, setScore] = useState(0);
     const [selectedOption, setSelectedOption] = useState<number | null>(null);
+    const [showFeedback, setShowFeedback] = useState(false);
+    const [isCorrect, setIsCorrect] = useState(false);
     const [sentiment, setSentiment] = useState("");
     const [isEvaluating, setIsEvaluating] = useState(false);
     const [evaluation, setEvaluation] = useState<EvaluationResult | null>(null);
@@ -72,14 +77,28 @@ export default function LearningInterface({ initialLevel = 1, learningStyle = 'T
     const requestRef = useRef<number>(0);
 
     const handleSpeak = (text: string) => {
-        if (isMuted) return; // Respect Mute
+        if (isMuted) {
+            window.speechSynthesis?.cancel();
+            return;
+        }
+
         if ('speechSynthesis' in window) {
             if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
                 window.speechSynthesis.cancel();
             } else {
-                const utterance = new SpeechSynthesisUtterance(text);
+                // Strip Markdown & LaTeX symbols for clean speech (Lumi Voice 2.0)
+                const cleanText = text
+                    .replace(/\${1,2}.*?\${1,2}/g, "bentuk matematika") // Replace math with dummy text (or remove)
+                    .replace(/[\*#_`]/g, "") // Remove bold, italic, headers, code ticks
+                    .replace(/>/g, "")
+                    .replace(/\[.*?\]\(.*?\)/g, "") // Remove links
+                    .replace(/\s+/g, " ")
+                    .trim();
+
+                const utterance = new SpeechSynthesisUtterance(cleanText);
                 utterance.lang = 'id-ID';
-                utterance.rate = 1.0;
+                utterance.rate = 1.1;
+                utterance.pitch = 1.2;
                 window.speechSynthesis.speak(utterance);
             }
         }
@@ -114,44 +133,47 @@ export default function LearningInterface({ initialLevel = 1, learningStyle = 'T
     // FETCH WELCOME MESSAGE
     useEffect(() => {
         const fetchWelcome = async () => {
-            if (!topic) return;
+            if (!topic || !isReady) return;
 
-            // Check Cache (Version 2 for Premium UI)
-            const cacheKey = `WELCOME_${topic}_${level}_${learningStyle}_v2`;
-            try {
-                const cacheDoc = await getDoc(doc(db, 'materi_cache', cacheKey));
-                if (cacheDoc.exists()) {
-                    const msg = cacheDoc.data().text;
-                    setWelcomeMessage(msg);
-                    if (learningStyle === 'AUDITORY') {
-                        setTimeout(() => handleSpeak(msg), 1000); // Auto-play with slight delay
-                    }
-                    return;
-                }
-            } catch (e) { console.warn("Cache error", e); }
-
-            // Fetch API
-            if (!isReady) return;
+            // Fetch API First for Static Data Priority
             try {
                 const res = await fetch('/api/adaptive', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        text: "Welcome", // Placeholder context
-                        mode: 'WELCOME',
+                        text: "Welcome",
+                        mode: 'TEACH',
                         topic,
                         style: learningStyle
                     }),
                 });
                 const data = await res.json();
+
+                // 1. Check for Static Curriculum (Lumi Edition)
+                if (data.quiz && data.quiz.length > 0) {
+                    setWelcomeMessage("");
+
+                    const staticFragment: Fragment = {
+                        id: `static-${level}`,
+                        title: `Materi Lumi Level ${level}`,
+                        text: data.explanation,
+                        content: data.explanation,
+                        type: 'text',
+                        order: 1
+                    };
+                    setFragments([staticFragment]);
+                    setQuizzes(data.quiz);
+                    setLoading(false);
+
+                    if (learningStyle === 'AUDITORY') {
+                        setTimeout(() => handleSpeak(data.explanation.substring(0, 200) + "..."), 1000);
+                    }
+                    return;
+                }
+
+                // 2. Normal Dynamic Flow
                 if (data.explanation) {
                     setWelcomeMessage(data.explanation);
-                    // Cache
-                    setDoc(doc(db, 'materi_cache', cacheKey), {
-                        text: data.explanation,
-                        timestamp: new Date()
-                    }).catch(console.error);
-
                     if (learningStyle === 'AUDITORY') {
                         setTimeout(() => handleSpeak(data.explanation), 1000);
                     }
@@ -164,9 +186,12 @@ export default function LearningInterface({ initialLevel = 1, learningStyle = 'T
         if (phase === 'LEARNING') {
             fetchWelcome();
         }
-    }, [level, topic, learningStyle, phase]); // Re-run on level/style change
+    }, [level, topic, learningStyle, phase, isReady]);
 
     const fetchData = async (uid: string, currentLevel: number) => {
+        // Guard: If fragments are already loaded (e.g. by Static Curriculum), skip Firestore
+        if (fragments.length > 0) return;
+
         setLoading(true);
         try {
             const qFrag = query(
@@ -179,6 +204,13 @@ export default function LearningInterface({ initialLevel = 1, learningStyle = 'T
             loadedFragments.sort((a, b) => a.order - b.order);
 
             if (loadedFragments.length === 0) {
+                // If no dynamic fragments, check fallback fragments (Legacy)
+                // But for Aljabar 1-5, we likely want to rely on the static load above.
+                if (topic.toLowerCase().includes('aljabar') && currentLevel <= 5) {
+                    setLoading(false);
+                    return;
+                }
+
                 const fallbackQ = query(collection(db, 'fragments'), where('level', '==', currentLevel));
                 const fallbackSnap = await getDocs(fallbackQ);
                 loadedFragments = fallbackSnap.docs.map(d => ({ id: d.id, ...d.data() } as Fragment));
@@ -191,11 +223,16 @@ export default function LearningInterface({ initialLevel = 1, learningStyle = 'T
             const snapQuiz = await getDocs(qQuiz);
             let loadedQuizzes = snapQuiz.docs.map(d => ({ id: d.id, ...d.data() } as QuizItem));
             if (loadedQuizzes.length === 0) {
-                const fallbackQ = query(collection(db, 'quiz'), where('level', '==', currentLevel));
-                const fallbackSnap = await getDocs(fallbackQ);
-                loadedQuizzes = fallbackSnap.docs.map(d => ({ id: d.id, ...d.data() } as QuizItem));
+                if (topic.toLowerCase().includes('aljabar') && currentLevel <= 5) {
+                    // Do nothing, already handled by static
+                } else {
+                    const fallbackQ = query(collection(db, 'quiz'), where('level', '==', currentLevel));
+                    const fallbackSnap = await getDocs(fallbackQ);
+                    loadedQuizzes = fallbackSnap.docs.map(d => ({ id: d.id, ...d.data() } as QuizItem));
+                }
             }
-            setQuizzes(loadedQuizzes);
+            if (loadedQuizzes.length > 0) setQuizzes(loadedQuizzes);
+
         } catch (err) {
             console.error("Error fetching data:", err);
         } finally {
@@ -213,16 +250,7 @@ export default function LearningInterface({ initialLevel = 1, learningStyle = 'T
         }
     };
 
-    const handleAnswerQuiz = () => {
-        if (selectedOption === null) return;
-        if (selectedOption === quizzes[currentQuizIndex].correctAnswer) setScore(s => s + 1);
-        if (currentQuizIndex + 1 < quizzes.length) {
-            setCurrentQuizIndex(i => i + 1);
-            setSelectedOption(null);
-        } else {
-            setPhase('SENTIMENT');
-        }
-    };
+
 
     // Robust Handle Bingung with API Status Logic
     const handleBingung = async () => {
@@ -381,6 +409,29 @@ $$ \\text{Sukses} = \\text{Usaha} + \\text{Konsistensi} $$
         }
     };
 
+    const handleAnswerQuiz = () => {
+        if (selectedOption === null) return;
+
+        const correct = quizzes[currentQuizIndex].correctAnswer === selectedOption;
+        setIsCorrect(correct);
+        if (correct) {
+            setScore(s => s + 1);
+        }
+        setShowFeedback(true);
+    };
+
+    const handleNextQuestion = () => {
+        setShowFeedback(false);
+        setSelectedOption(null);
+
+        if (currentQuizIndex < quizzes.length - 1) {
+            setCurrentQuizIndex(prev => prev + 1);
+        } else {
+            // End of Quiz
+            handleSubmitSentiment();
+        }
+    };
+
     const handleSubmitSentiment = async () => {
         setIsEvaluating(true);
         try {
@@ -492,11 +543,20 @@ $$ \\text{Sukses} = \\text{Usaha} + \\text{Konsistensi} $$
             {/* PHASE: LEARNING */}
             {phase === 'LEARNING' && fragments.length > 0 && (
                 <div className="p-8 sm:p-12 flex-1 flex flex-col">
-                    <h2 className="text-2xl sm:text-3xl font-bold text-[#0f172a] leading-tight mb-8">
-                        {fragments[currentIndex].text}
-                    </h2>
+                    {/* 1. Main Material Title (Safe Render) */}
+                    <div className="mb-8 select-none">
+                        <ReactMarkdown
+                            remarkPlugins={[remarkMath, remarkGfm]}
+                            rehypePlugins={[[rehypeKatex, { strict: false }]]}
+                            components={{
+                                p: ({ node, ...props }: any) => <h2 className="text-2xl sm:text-3xl font-bold text-[#0f172a] leading-tight" {...props} />
+                            }}
+                        >
+                            {fragments[currentIndex].text || "Materi Belajar"}
+                        </ReactMarkdown>
+                    </div>
 
-                    {/* AI Welcome Bubble */}
+                    {/* 2. AI Welcome Bubble (Safe Render) */}
                     {welcomeMessage && !isExplaining && !explanation && (
                         <div className="mb-8 flex gap-4 animate-in fade-in slide-in-from-left-4 duration-700">
                             <div className="w-12 h-12 flex-shrink-0 bg-blue-100 rounded-2xl flex items-center justify-center text-2xl shadow-sm border-2 border-white">
@@ -504,7 +564,16 @@ $$ \\text{Sukses} = \\text{Usaha} + \\text{Konsistensi} $$
                             </div>
                             <div className="bg-white p-5 rounded-2xl rounded-tl-none shadow-sm border border-slate-100 max-w-lg relative group">
                                 <div className="text-slate-600 font-medium text-sm leading-relaxed">
-                                    {welcomeMessage}
+                                    <ReactMarkdown
+                                        remarkPlugins={[remarkMath, remarkGfm]}
+                                        rehypePlugins={[[rehypeKatex, { strict: false }]]}
+                                        components={{
+                                            p: ({ node, ...props }: any) => <p className="mb-2 last:mb-0" {...props} />,
+                                            strong: ({ node, ...props }: any) => <span className="font-bold text-blue-900 bg-blue-50 px-1 rounded" {...props} />
+                                        }}
+                                    >
+                                        {welcomeMessage}
+                                    </ReactMarkdown>
                                 </div>
                                 <div className="absolute -right-2 -bottom-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <div className="flex gap-1">
@@ -529,16 +598,14 @@ $$ \\text{Sukses} = \\text{Usaha} + \\text{Konsistensi} $$
                             {/* Header Controls: Status & Mute */}
                             {!isExplaining && (
                                 <div className="absolute top-6 right-6 flex items-center gap-3 z-20">
-                                    {/* Mute Button */}
-                                    {learningStyle === 'AUDITORY' && (
-                                        <button
-                                            onClick={toggleMute}
-                                            className={`p-2 rounded-full transition-all border ${isMuted ? 'bg-slate-100 text-slate-400 border-slate-200' : 'bg-white text-blue-600 border-blue-100 shadow-sm hover:shadow-md'}`}
-                                            title={isMuted ? "Unmute Suara" : "Mute Suara"}
-                                        >
-                                            {isMuted ? '🔇' : '🔊'}
-                                        </button>
-                                    )}
+                                    {/* Mute Button - Always Visible */}
+                                    <button
+                                        onClick={toggleMute}
+                                        className={`p-2 rounded-full transition-all border ${isMuted ? 'bg-slate-100 text-slate-400 border-slate-200' : 'bg-white text-blue-600 border-blue-100 shadow-sm hover:shadow-md'}`}
+                                        title={isMuted ? "Unmute Suara" : "Mute Suara"}
+                                    >
+                                        {isMuted ? '🔇' : '🔊'}
+                                    </button>
 
                                     {/* Status Indicator */}
                                     <div className={`px-3 py-1.5 ${isOffline ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-emerald-100 text-emerald-700 border-emerald-200'} text-[10px] font-bold uppercase tracking-widest rounded-full border flex items-center gap-1.5`}>
@@ -586,7 +653,7 @@ $$ \\text{Sukses} = \\text{Usaha} + \\text{Konsistensi} $$
                                     <div className={`${isOffline ? 'bg-white/70' : 'bg-white/50'} p-6 rounded-2xl border ${isOffline ? 'border-amber-100' : 'border-blue-100'}`}>
                                         <ReactMarkdown
                                             remarkPlugins={[remarkMath, remarkGfm]}
-                                            rehypePlugins={[rehypeKatex]}
+                                            rehypePlugins={[[rehypeKatex, { strict: false }]]}
                                             components={{
                                                 // 1. Title (H1) - Centered & Bold
                                                 h1: ({ node, ...props }: any) => <h1 className="text-3xl font-black text-slate-900 mb-8 pb-6 border-b-4 border-blue-50 text-center leading-tight" {...props} />,
@@ -636,7 +703,8 @@ $$ \\text{Sukses} = \\text{Usaha} + \\text{Konsistensi} $$
                                                 strong: ({ node, ...props }: any) => <span className="font-extrabold text-slate-900 bg-yellow-100 px-1.5 py-0.5 rounded box-decoration-clone" {...props} />,
 
                                                 // 6. Spacing & Lists
-                                                p: ({ node, ...props }: any) => <p className="leading-loose mb-6 text-lg text-slate-600 font-medium" {...props} />,
+                                                // FIXED: Use div instead of p to prevent <p><pre>...</pre></p> hydration error
+                                                p: ({ node, ...props }: any) => <div className="leading-loose mb-6 text-lg text-slate-600 font-medium" {...props} />,
                                                 ul: ({ node, ...props }: any) => <ul className="space-y-4 my-6 pl-2" {...props} />,
                                                 li: ({ node, ...props }: any) => (
                                                     <li className="flex gap-3 items-start p-4 bg-white rounded-2xl shadow-sm border border-slate-50 hover:border-blue-100 transition-colors group">
@@ -646,9 +714,20 @@ $$ \\text{Sukses} = \\text{Usaha} + \\text{Konsistensi} $$
                                                 ),
 
                                                 // 7. Inline Code & Tables
-                                                code: ({ node, inline, ...props }: any) => inline
-                                                    ? <code className="bg-slate-100 text-blue-600 px-2 py-1 rounded-lg font-bold font-mono text-sm border border-slate-200" {...props} />
-                                                    : <pre className="bg-slate-900 text-slate-50 p-6 rounded-2xl overflow-x-auto my-6 shadow-xl"><code {...props} /></pre>,
+                                                code: ({ node, inline, className, children, ...props }: any) => {
+                                                    const match = /language-(\w+)/.exec(className || '');
+                                                    return !inline ? (
+                                                        <pre className="bg-slate-900 text-slate-50 p-6 rounded-2xl overflow-x-auto my-6 shadow-xl leading-relaxed">
+                                                            <code className={className} {...props}>
+                                                                {children}
+                                                            </code>
+                                                        </pre>
+                                                    ) : (
+                                                        <code className="bg-slate-100 text-blue-600 px-2 py-1 rounded-lg font-bold font-mono text-sm border border-slate-200" {...props}>
+                                                            {children}
+                                                        </code>
+                                                    );
+                                                },
                                                 table: ({ node, ...props }: any) => <div className="overflow-x-auto my-8 rounded-xl border border-slate-200 shadow-sm"><table className="w-full text-left text-sm" {...props} /></div>,
                                                 thead: ({ node, ...props }: any) => <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-widest" {...props} />,
                                                 th: ({ node, ...props }: any) => <th className="px-6 py-4 font-black" {...props} />,
@@ -729,29 +808,63 @@ $$ \\text{Sukses} = \\text{Usaha} + \\text{Konsistensi} $$
                             {quizzes[currentQuizIndex].question}
                         </h3>
 
-                        <div className="space-y-4 mb-8 flex-1">
-                            {quizzes[currentQuizIndex].options.map((opt, idx) => (
-                                <button
-                                    key={idx}
-                                    onClick={() => setSelectedOption(idx)}
-                                    className={`w-full text-left p-5 rounded-2xl border-2 transition-all font-medium text-lg
-                                    ${selectedOption === idx
-                                            ? 'border-blue-600 bg-blue-50 text-blue-700 shadow-md'
-                                            : 'border-slate-100 hover:border-blue-200 hover:bg-slate-50 text-slate-600'
-                                        }`}
-                                >
-                                    {opt}
-                                </button>
-                            ))}
+                        <div className="space-y-4 mb-4 flex-1">
+                            {quizzes[currentQuizIndex].options.map((opt, idx) => {
+                                let buttonClass = "border-slate-100 hover:border-blue-200 hover:bg-slate-50 text-slate-600";
+
+                                if (showFeedback) {
+                                    if (idx === quizzes[currentQuizIndex].correctAnswer) {
+                                        buttonClass = "border-emerald-500 bg-emerald-50 text-emerald-700 font-bold";
+                                    } else if (idx === selectedOption && !isCorrect) {
+                                        buttonClass = "border-red-500 bg-red-50 text-red-700 font-bold";
+                                    } else {
+                                        buttonClass = "opacity-50 border-slate-100";
+                                    }
+                                } else if (selectedOption === idx) {
+                                    buttonClass = "border-blue-600 bg-blue-50 text-blue-700 shadow-md";
+                                }
+
+                                return (
+                                    <button
+                                        key={idx}
+                                        onClick={() => !showFeedback && setSelectedOption(idx)}
+                                        disabled={showFeedback}
+                                        className={`w-full text-left p-5 rounded-2xl border-2 transition-all font-medium text-lg ${buttonClass}`}
+                                    >
+                                        {opt}
+                                    </button>
+                                )
+                            })}
                         </div>
 
-                        <button
-                            onClick={handleAnswerQuiz}
-                            disabled={selectedOption === null}
-                            className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold text-lg disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-blue-200 hover:shadow-blue-300 hover:-translate-y-1 transition-all"
-                        >
-                            Jawab Pertanyaan
-                        </button>
+                        {/* FEEDBACK BOX */}
+                        {showFeedback && (
+                            <div className={`mb-6 p-6 rounded-2xl animate-fade-in ${isCorrect ? 'bg-emerald-50 border border-emerald-200' : 'bg-red-50 border border-red-200'}`}>
+                                <h4 className={`font-bold text-lg mb-2 ${isCorrect ? 'text-emerald-700' : 'text-red-700'}`}>
+                                    {isCorrect ? '🎉 Benar Sekali!' : '🤔 Kurang Tepat...'}
+                                </h4>
+                                <p className="text-slate-700">
+                                    {quizzes[currentQuizIndex].explanation}
+                                </p>
+                            </div>
+                        )}
+
+                        {!showFeedback ? (
+                            <button
+                                onClick={handleAnswerQuiz}
+                                disabled={selectedOption === null}
+                                className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold text-lg disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-blue-200 hover:shadow-blue-300 hover:-translate-y-1 transition-all"
+                            >
+                                Jawab Pertanyaan
+                            </button>
+                        ) : (
+                            <button
+                                onClick={handleNextQuestion}
+                                className="w-full py-4 bg-slate-800 text-white rounded-2xl font-bold text-lg shadow-xl hover:bg-slate-700 hover:-translate-y-1 transition-all"
+                            >
+                                {currentQuizIndex < quizzes.length - 1 ? 'Pertanyaan Berikutnya ➡' : 'Lihat Hasil Akhir 🏁'}
+                            </button>
+                        )}
                     </div>
                 )
             }

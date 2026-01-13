@@ -19,16 +19,15 @@ interface LevelData {
     duration: string;
 }
 
-// Mock Data for 5 Levels
-const getLevels = (topicId: string): LevelData[] => {
-    // Default structure for any topic
-    return [
+// Dynamic Data for 5 Levels
+const getLevels = (topicId: string, currentLevel: number): LevelData[] => {
+    const levels: LevelData[] = [
         {
             level: 1,
             title: 'Konsep Dasar & Definisi',
             description: 'Memahami terminologi dasar dan prinsip awal.',
             type: 'VIDEO',
-            status: 'COMPLETED', // Mock: Level 1 done
+            status: 'LOCKED',
             duration: '5 min'
         },
         {
@@ -36,7 +35,7 @@ const getLevels = (topicId: string): LevelData[] => {
             title: 'Rumus & Teorema Utama',
             description: 'Pelajari rumus kunci yang wajib dihafal.',
             type: 'TEXT',
-            status: 'OPEN', // Current Level
+            status: 'LOCKED',
             duration: '10 min'
         },
         {
@@ -64,14 +63,17 @@ const getLevels = (topicId: string): LevelData[] => {
             duration: '30 min'
         }
     ];
+
+    // Compute Status
+    return levels.map(l => {
+        if (l.level < currentLevel) return { ...l, status: 'COMPLETED' };
+        if (l.level === currentLevel) return { ...l, status: 'OPEN' };
+        return { ...l, status: 'LOCKED' };
+    });
 };
 
 export default function TopicMastery({ topicId, onBack, onStartLevel, currentLevel = 1, showAIHelp = false }: TopicMasteryProps) {
-    const rawLevels = getLevels(topicId);
-    const levels = rawLevels.map(lvl => ({
-        ...lvl,
-        status: (lvl.level < currentLevel ? 'COMPLETED' : lvl.level === currentLevel ? 'OPEN' : 'LOCKED') as 'LOCKED' | 'OPEN' | 'COMPLETED'
-    }));
+    const levels = getLevels(topicId, currentLevel);
     const topicName = topicId.charAt(0).toUpperCase() + topicId.slice(1);
 
     // Note: Removed mock isStuck logic, using prop instead
@@ -126,13 +128,17 @@ export default function TopicMastery({ topicId, onBack, onStartLevel, currentLev
                         <div key={lvl.level} className="relative group">
                             <button
                                 disabled={lvl.status === 'LOCKED'}
-                                onClick={() => onStartLevel(lvl.level, lvl.type)}
+                                onClick={() => {
+                                    if (lvl.status !== 'LOCKED') {
+                                        onStartLevel(lvl.level, lvl.type);
+                                    }
+                                }}
                                 className={`w-full text-left p-6 sm:pl-24 rounded-2xl border transition-all duration-300 relative overflow-hidden
                                     ${lvl.status === 'OPEN'
-                                        ? 'bg-white border-blue-200 shadow-[0_4px_20px_rgba(37,99,235,0.05)] ring-1 ring-blue-100 z-10'
+                                        ? 'bg-white border-blue-200 shadow-[0_4px_20px_rgba(37,99,235,0.05)] ring-1 ring-blue-100 z-10 cursor-pointer hover:shadow-md hover:scale-[1.01]'
                                         : lvl.status === 'COMPLETED'
-                                            ? 'bg-white border-emerald-100 opacity-90'
-                                            : 'bg-slate-50 border-slate-200 opacity-60 grayscale'
+                                            ? 'bg-white border-emerald-100 opacity-90 cursor-pointer hover:opacity-100'
+                                            : 'bg-slate-50 border-slate-200 opacity-60 grayscale cursor-not-allowed'
                                     }
                                 `}
                             >

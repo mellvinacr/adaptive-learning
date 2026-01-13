@@ -130,7 +130,9 @@ export default function DashboardPage() {
                     setTopicLevels(prev => {
                         const newLevels = { ...prev };
                         Object.keys(maxLevelMap).forEach(k => {
-                            newLevels[k] = Math.max(newLevels[k] || 1, maxLevelMap[k] || 1);
+                            // If maxLevelMap[k] is the COMPLETED level, then current level is +1
+                            const completedLvl = maxLevelMap[k] || 0;
+                            newLevels[k] = Math.max(newLevels[k] || 1, completedLvl + 1);
                         });
                         return newLevels;
                     });
@@ -628,7 +630,7 @@ export default function DashboardPage() {
                             </div>
                             <div className="p-4 bg-slate-50 rounded-2xl flex justify-between items-center">
                                 <span className="font-bold text-slate-600">Level Matematika</span>
-                                <span className="px-3 py-1 bg-white rounded-lg text-xs font-black uppercase text-emerald-600 shadow-sm">Level {unlockedLevel}</span>
+                                <span className="px-3 py-1 bg-white rounded-lg text-xs font-black uppercase text-emerald-600 shadow-sm">Level {Math.max(...Object.values(topicLevels).concat(1))}</span>
                             </div>
                         </div>
                         <button onClick={() => auth.signOut()} className="w-full mt-8 py-4 rounded-2xl border-2 border-rose-100 text-rose-500 font-bold hover:bg-rose-50 transition-colors">
