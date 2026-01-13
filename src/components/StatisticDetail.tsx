@@ -21,6 +21,11 @@ export default function StatisticDetail({ user, onBack }: StatisticDetailProps) 
     const [isOffline, setIsOffline] = useState(false);
     const [isMuted, setIsMuted] = useState(false);
 
+    // Student Profile
+    const [dominantStyle, setDominantStyle] = useState("VISUAL");
+    const [totalStudyHours, setTotalStudyHours] = useState("0");
+    const [weakAreas, setWeakAreas] = useState<any[]>([]);
+
     useEffect(() => {
         const fetchData = async () => {
             if (!user) return;
@@ -50,6 +55,10 @@ export default function StatisticDetail({ user, onBack }: StatisticDetailProps) 
             Sadness: 0, Disgust: 0, Anger: 0, Anticipation: 0
         };
 
+        // Student Profile Stats
+        const styleCounts: Record<string, number> = { VISUAL: 0, AUDITORY: 0, KINESTHETIC: 0 };
+        let totalTimeSeconds = 0;
+
         let totalEmotions = 0;
         data.forEach(session => {
             const e = session.emotion;
@@ -63,6 +72,20 @@ export default function StatisticDetail({ user, onBack }: StatisticDetailProps) 
                 else if (e.includes('Curious')) emotionCounts['Anticipation']++;
                 else if (e.includes('Frustrated')) emotionCounts['Anger']++;
             }
+
+            // Learning Style Count
+            if (session.learningStyle) {
+                const style = session.learningStyle.toUpperCase();
+                if (styleCounts[style] !== undefined) styleCounts[style]++;
+            }
+
+            // Total Time
+            if (session.durationSeconds) {
+                totalTimeSeconds += session.durationSeconds;
+            } else {
+                // Legacy fallback (estimate 15 mins per session)
+                totalTimeSeconds += 15 * 60;
+            }
         });
 
         const radarData = Object.keys(emotionCounts).map(key => ({
@@ -71,6 +94,10 @@ export default function StatisticDetail({ user, onBack }: StatisticDetailProps) 
             fullMark: Math.max(...Object.values(emotionCounts)) + 2
         }));
         setEmotionData(radarData);
+
+        // Calculate Dominant Style
+        const dominantStyle = Object.keys(styleCounts).reduce((a, b) => styleCounts[a] > styleCounts[b] ? a : b);
+        const totalHours = (totalTimeSeconds / 3600).toFixed(1);
 
         // 2. Trend Line Data & Topic Mastery
         const statsByDate: Record<string, { totalScore: number, count: number, learningTime: number }> = {};
@@ -88,9 +115,11 @@ export default function StatisticDetail({ user, onBack }: StatisticDetailProps) 
             }
 
             // Topic Mastery (Max Level)
-            if (session.topicId && session.level) {
+            if (session.topicId || (session.topic && typeof session.topic === 'string')) {
                 // Normalize topicId (e.g. 'aljabar-linear' -> 'Aljabar')
-                const topicName = session.topicId.charAt(0).toUpperCase() + session.topicId.slice(1);
+                const rawTopic = session.topicId || session.topic;
+                const topicName = rawTopic.charAt(0).toUpperCase() + rawTopic.slice(1);
+
                 if (!topicLevels[topicName] || session.level > topicLevels[topicName]) {
                     topicLevels[topicName] = session.level;
                 }
@@ -106,9 +135,31 @@ export default function StatisticDetail({ user, onBack }: StatisticDetailProps) 
         setTrendData(lineData);
         setTopicMastery(topicLevels);
 
-        // 3. Generate AI Insight
+        // 3. Process Weak Areas (Top 3 Wrong Questions)
+        const wrongQuestions: Record<string, { count: number, question: string }> = {};
+        data.forEach(session => {
+            if (session.answers) {
+                Object.values(session.answers).forEach((ans: any) => {
+                    if (!ans.correct) {
+                        const qRaw = ans.question || "";
+                        // Simple cleaning to group similar questions
+                        const qKey = qRaw.substring(0, 50);
+                        if (!wrongQuestions[qKey]) wrongQuestions[qKey] = { count: 0, question: qRaw };
+                        wrongQuestions[qKey].count++;
+                    }
+                });
+            }
+        });
+
+        const topWeaknesses = Object.values(wrongQuestions)
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 3);
+
+        setWeakAreas(topWeaknesses);
+
+        // 4. Generate AI Insight
         if (data.length > 0) {
-            generateInsight(radarData, lineData, topicLevels);
+            generateInsight(radarData, lineData, topicLevels, dominantStyle, totalHours);
         }
     };
 
@@ -153,12 +204,15 @@ export default function StatisticDetail({ user, onBack }: StatisticDetailProps) 
         setIsMuted(prev => !prev);
     };
 
-    const generateInsight = async (eData: any[], tData: any[], topicLevels: Record<string, number>) => {
+    const generateInsight = async (eData: any[], tData: any[], topicLevels: Record<string, number>, domStyle: string, totalHrs: string) => {
         setInsightLoading(true);
+        // Set local state for UI
+        setDominantStyle(domStyle);
+        setTotalStudyHours(totalHrs);
+
         try {
             const topEmotion = eData.reduce((prev, current) => (prev.A > current.A) ? prev : current).subject;
             const avgAccuracy = tData.reduce((sum: number, item: any) => sum + item.accuracy, 0) / tData.length || 0;
-            const totalHours = tData.reduce((sum: number, item: any) => sum + (item.hours || 0), 0).toFixed(1);
             const emotionSummary = eData.map(e => `${e.subject}: ${e.A}`).join(', ');
             const topicSummary = Object.entries(topicLevels).map(([t, l]) => `${t} (Level ${l})`).join(', ');
 
@@ -168,11 +222,20 @@ export default function StatisticDetail({ user, onBack }: StatisticDetailProps) 
                 body: JSON.stringify({
                     mode: 'REPORT',
                     text: `
+USER PROFILE:
+- Gaya Belajar Dominan: ${domStyle}
+- Total Jam Belajar: ${totalHrs} jam
 - Emosi Dominan (Plutchik): ${topEmotion}
 - Peta Emosi: ${emotionSummary}
 - Rata-rata Akurasi: ${Math.round(avgAccuracy)}%
-- Total Jam Belajar: ${totalHours} jam
-- Penguasaan Topik: ${topicSummary || "Belum ada data topik spesifik"}`,
+- Penguasaan Topik: ${topicSummary || "Belum ada data topik spesifik"}
+
+INSTRUCTION:
+Sebagai Lumi, berikan analisis mendalam dan personal (maksimal 2 paragraf).
+1. Hubungkan Gaya Belajar (${domStyle}) dengan performa mereka.
+2. Analisis hubungan Emosi (${topEmotion}) dengan hasil belajar.
+3. Berikan saran spesifik untuk materi selanjutnya berdasarkan top level (${topicSummary}).
+Gunakan bahasa yang memotivasi dan hangat.`,
                     topic: 'Laporan Progres',
                     style: 'VISUAL'
                 })
@@ -319,6 +382,36 @@ Terus semangat! 💡`);
                 </div>
             </div>
 
+            {/* 0. STUDENT PROFILE SUMMARY */}
+            <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-indigo-100 flex flex-col md:flex-row items-center justify-between gap-8 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50 rounded-full opacity-50 -mr-16 -mt-16 blur-2xl"></div>
+
+                <div className="flex items-center gap-6 relative z-10">
+                    <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-4xl shadow-xl shadow-indigo-200 animate-fade-in-up">
+                        {dominantStyle === 'VISUAL' ? '🎨' : dominantStyle === 'AUDITORY' ? '🎧' : '🛠️'}
+                    </div>
+                    <div>
+                        <div className="text-sm font-bold text-indigo-400 tracking-widest uppercase mb-1">Gaya Belajar</div>
+                        <h3 className="text-3xl font-black text-slate-900">{dominantStyle} Learner</h3>
+                        <p className="text-slate-500 font-medium">Kamu paling cepat paham lewat {dominantStyle === 'VISUAL' ? 'Gambar & Visual' : dominantStyle === 'AUDITORY' ? 'Suara & Cerita' : 'Praktek Langsung'}.</p>
+                    </div>
+                </div>
+
+                <div className="flex gap-8 relative z-10">
+                    <div className="text-right">
+                        <div className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-1">Total Fokus</div>
+                        <div className="text-4xl font-black text-slate-900">{totalStudyHours}<span className="text-lg text-slate-400 ml-1">Jam</span></div>
+                    </div>
+                    <div className="w-px bg-slate-100 h-16"></div>
+                    <div className="text-right">
+                        <div className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-1">Badge</div>
+                        <div className="text-4xl font-black text-slate-900">
+                            {Object.entries(topicMastery).some(([_, l]) => l >= 5) ? '🥇' : '🌱'}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* 1. Radar Chart - Emotions */}
                 <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 relative overflow-hidden">
@@ -390,6 +483,39 @@ Terus semangat! 💡`);
                         </ResponsiveContainer>
                     </div>
                 </div>
+
+
+                {/* 3. Top Weaknesses - "Focus Zone" */}
+                <div className="md:col-span-2 bg-white p-8 rounded-[2.5rem] shadow-sm border border-rose-100 relative overflow-hidden">
+                    <h3 className="text-lg font-black text-slate-900 mb-6 flex items-center gap-2">
+                        <span className="text-2xl">🎯</span> Zona Fokus (Perlu Latihan)
+                    </h3>
+
+                    {weakAreas.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            {weakAreas.map((item, idx) => (
+                                <div key={idx} className="bg-rose-50 p-6 rounded-2xl border border-rose-100 flex flex-col">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <div className="w-8 h-8 rounded-full bg-rose-200 text-rose-700 flex items-center justify-center font-bold text-sm">
+                                            {idx + 1}
+                                        </div>
+                                        <div className="text-xs font-bold text-rose-400 uppercase tracking-widest">
+                                            {item.count}x Salah
+                                        </div>
+                                    </div>
+                                    <p className="text-slate-700 font-medium text-sm line-clamp-3">
+                                        "{item.question}"
+                                    </p>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="text-center py-10 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
+                            <div className="text-4xl mb-4">🌟</div>
+                            <h4 className="font-bold text-slate-400">Belum ada materi yang sering salah. Pertahankan!</h4>
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* 3. Lumi AI Insights Card - FLO PERSONA UI */}
@@ -459,7 +585,7 @@ Terus semangat! 💡`);
                                 </div>
                             ) : (
                                 <ReactMarkdown>
-                                    {aiInsight || "Belum ada data yang cukup untuk dianalisis. Teruskan belajarmu!"}
+                                    {isOffline ? 'Koneksi terputus. Menggunakan data lokal.' : aiInsight ? aiInsight : 'Sedang menganalisis datamu...'}
                                 </ReactMarkdown>
                             )}
                         </div>
@@ -471,12 +597,34 @@ Terus semangat! 💡`);
                 <div className="absolute bottom-0 left-0 w-64 h-64 bg-black/5 rounded-full blur-3xl -ml-20 -mb-20 pointer-events-none"></div>
             </div>
 
-            {/* Back Button */}
-            <div className="flex justify-center pt-8 pb-20">
-                <button onClick={onBack} className="text-slate-400 font-bold hover:text-blue-600 transition-colors uppercase tracking-widest text-sm">
-                    KEMBALI KE DASHBOARD
+            {/* 4. SUCCESS & NEXT STEPS */}
+            {
+                Object.entries(topicMastery).some(([t, l]) => t === 'Aljabar' && l >= 5) && (
+                    <div className="mt-8 p-8 bg-gradient-to-r from-emerald-400 to-teal-500 rounded-[2.5rem] shadow-xl shadow-emerald-200 text-white relative overflow-hidden animate-bounce-slow">
+                        <div className="absolute top-0 right-0 opacity-10 text-[10rem] font-black -mr-10 -mt-10">GO</div>
+                        <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
+                            <div>
+                                <h3 className="text-3xl font-black mb-2">🎉 Luar Biasa! Aljabar Tamat!</h3>
+                                <p className="text-emerald-50 text-lg font-medium max-w-xl">
+                                    Kamu telah menguasai fundamental Aljabar dengan sangat baik. Dunia Geometri yang penuh bentuk visual sudah menantimu!
+                                </p>
+                            </div>
+                            <button
+                                onClick={onBack}
+                                className="px-8 py-4 bg-white text-emerald-600 font-black rounded-2xl shadow-lg hover:scale-105 transition-transform text-lg"
+                            >
+                                Lanjut ke Geometri 📐
+                            </button>
+                        </div>
+                    </div>
+                )
+            }
+
+            <div className="text-center pt-8 pb-4">
+                <button onClick={onBack} className="text-slate-400 hover:text-slate-600 font-bold uppercase tracking-widest text-sm transition-colors">
+                    Kembali ke Dashboard
                 </button>
             </div>
-        </div>
+        </div >
     );
 }

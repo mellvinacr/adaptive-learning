@@ -57,9 +57,11 @@ export default function LearningInterface({ initialLevel = 1, learningStyle = 'T
     const [phase, setPhase] = useState<Phase>('LEARNING');
     const [level, setLevel] = useState(initialLevel);
 
-    // FIX: Sync level state when initialLevel prop changes (from Parent)
+    // FIX: Sync level state when initialLevel prop changes
     useEffect(() => {
         setLevel(initialLevel);
+        startTime.current = new Date(); // Reset timer on level change
+        setUserAnswers({}); // Reset answers
     }, [initialLevel]);
 
     const [fragments, setFragments] = useState<Fragment[]>([]);
@@ -81,6 +83,10 @@ export default function LearningInterface({ initialLevel = 1, learningStyle = 'T
     const [welcomeMessage, setWelcomeMessage] = useState<string | null>(null);
     const [isOffline, setIsOffline] = useState(false); // Track offline/fallback mode
     const [isMuted, setIsMuted] = useState(false); // Audio Mute State
+
+    // ANALYTICS DATA
+    const startTime = useRef<Date>(new Date());
+    const [userAnswers, setUserAnswers] = useState<Record<number, { question: string, selected: number, correct: boolean }>>({});
 
     // Queue & Anti-Spam (Track latest request)
     const requestRef = useRef<number>(0);
@@ -452,6 +458,17 @@ $$ \\text{Sukses} = \\text{Usaha} + \\text{Konsistensi} $$
         if (correct) {
             setScore(s => s + 1);
         }
+
+        // Record Answer for Analytics
+        setUserAnswers(prev => ({
+            ...prev,
+            [currentQuizIndex]: {
+                question: quizzes[currentQuizIndex].question,
+                selected: selectedOption,
+                correct
+            }
+        }));
+
         setShowFeedback(true);
     };
 
@@ -516,8 +533,11 @@ $$ \\text{Sukses} = \\text{Usaha} + \\text{Konsistensi} $$
             setIsEvaluating(false);
 
             // LOG SESSION (Executed even if API failed or fell back)
+            // LOG SESSION (Executed even if API failed or fell back)
             if (user) {
                 const passedLocally = score / quizzes.length >= 0.8;
+                const durationSeconds = (new Date().getTime() - startTime.current.getTime()) / 1000;
+
                 addDoc(collection(db, 'users', user.uid, 'sessions'), {
                     timestamp: new Date(),
                     score,
@@ -527,7 +547,10 @@ $$ \\text{Sukses} = \\text{Usaha} + \\text{Konsistensi} $$
                     emotion: sentiment,
                     learningStyle,
                     level: level,
-                    xp: passedLocally ? 100 * level : 10
+                    topic: topic, // Ensure Topic is saved
+                    xp: passedLocally ? 100 * level : 10,
+                    durationSeconds: durationSeconds,
+                    answers: userAnswers
                 }).catch(e => console.warn("Session log failed", e));
 
                 if (passedLocally) {
