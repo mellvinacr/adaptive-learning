@@ -418,16 +418,16 @@ export default function DashboardPage() {
     // Ideally we would split these into components, but for now we conditional render sections.
 
     return (
-        <div className="min-h-screen bg-[#F8FAFC] font-sans pb-32">
+        <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-100 via-slate-50 to-white font-sans pb-32">
 
             {/* Modal */}
             {showStyleModal && <StyleSelectionModal />}
 
             {/* Header */}
-            <header className="bg-white/80 backdrop-blur-md sticky top-0 z-40 border-b border-slate-100/50">
+            <header className="bg-white/80 backdrop-blur-md sticky top-0 z-40 border-b border-slate-200/60 support-backdrop-blur:bg-white/60">
                 <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-200">
+                        <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
                             <span className="text-white text-xl font-black">M</span>
                         </div>
                         <span className="font-black text-xl tracking-tight text-slate-900">MATH<span className="text-blue-600">FLOW</span></span>
@@ -444,7 +444,7 @@ export default function DashboardPage() {
                         <div className="flex items-center gap-4 bg-slate-50 border border-slate-100 p-1.5 pr-4 rounded-full">
                             <div className="text-right">
                                 <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Global Rank</div>
-                                <div className="text-sm font-black text-slate-800">#1,240</div>
+                                <div className="text-sm font-black text-slate-800">{xp.toLocaleString()}</div>
                             </div>
                             <button onClick={() => auth.signOut()} className="w-8 h-8 flex items-center justify-center rounded-full bg-white border border-slate-200 text-slate-400 hover:text-rose-500 transition-colors">
                                 <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
@@ -459,84 +459,55 @@ export default function DashboardPage() {
                 {view === 'DASHBOARD' && (
                     <>
                         {/* 1. Hero / Profile Section */}
-                        <section className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                            <div className="lg:col-span-7 bg-white rounded-[2.5rem] p-8 shadow-[0_20px_40px_rgba(0,0,0,0.02)] border border-slate-50 relative overflow-hidden">
-                                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-8 relative z-10">
-                                    <div className="relative">
-                                        <div className="w-24 h-24 rounded-[2rem] bg-indigo-50 border-4 border-white shadow-xl shadow-indigo-100 flex items-center justify-center text-4xl">
-                                            🎓
-                                        </div>
-                                        <div className="absolute -bottom-2 -right-2 bg-emerald-500 border-4 border-white w-8 h-8 rounded-full flex items-center justify-center text-white text-xs">✓</div>
+                        <div className="lg:col-span-12 bg-white rounded-[2.5rem] p-10 shadow-[0_20px_50px_rgba(8,_112,_184,_0.07)] border border-slate-100 relative overflow-hidden">
+                            <div className="flex flex-col md:flex-row items-center gap-10 relative z-10">
+                                <div className="relative group">
+                                    <div className="w-32 h-32 rounded-[2.5rem] bg-gradient-to-br from-blue-100 to-indigo-50 border-8 border-white shadow-2xl shadow-blue-100 flex items-center justify-center text-6xl group-hover:scale-105 transition-transform duration-500">
+                                        🎓
                                     </div>
-
-                                    <div className="text-center sm:text-left flex-1">
-                                        <div className="flex items-center justify-center sm:justify-start gap-3 mb-2">
-                                            {/* Dynamic Name Fix: Profile Name -> Auth Name -> Fallback */}
-                                            <h1 className="text-3xl font-black text-slate-900">{profile?.name || user?.displayName || 'Siswa'}</h1>
-                                            <span className="px-3 py-1 rounded-full bg-blue-600 text-white text-[10px] font-bold uppercase tracking-widest shadow-lg shadow-blue-200">Premium Student</span>
-                                        </div>
-                                        <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mb-8">
-                                            Level {Math.max(...Object.values(topicLevels).concat(1))} (Max) • Senior High School
-                                        </p>
-
-                                        <div className="grid grid-cols-3 gap-4">
-                                            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
-                                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total XP</div>
-                                                <div className="text-xl font-black text-blue-600">{xp.toLocaleString()}</div>
-                                            </div>
-                                            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
-                                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Streak</div>
-                                                <div className="text-xl font-black text-orange-500 flex items-center gap-1">
-                                                    {streak} <span className="text-sm">🔥</span>
-                                                </div>
-                                            </div>
-                                            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
-                                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Badges</div>
-                                                <div className="text-xl font-black text-purple-600 flex items-center gap-1">
-                                                    {badgesCount} <span className="text-sm">🎖️</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
+                                    <div className="absolute -bottom-2 -right-2 bg-blue-600 border-4 border-white w-10 h-10 rounded-2xl flex items-center justify-center text-white text-sm shadow-lg">✓</div>
                                 </div>
-                                <div className="absolute -top-24 -right-24 w-64 h-64 bg-slate-50 rounded-full blur-3xl opacity-60"></div>
-                            </div>
 
-                            <div className="lg:col-span-5 bg-[#0F172A] rounded-[2.5rem] p-8 text-white relative overflow-hidden flex flex-col justify-between shadow-2xl shadow-slate-900/20">
-                                <div className="relative z-10">
-                                    <p className="text-slate-400 font-medium text-sm leading-relaxed mb-6">
-                                        Kamu terakhir belajar <span className="text-blue-400 font-bold">{lastActiveSession?.topic || selectedTopic || 'Aljabar'}</span> kemarin.
+                                <div className="text-center md:text-left flex-1">
+                                    <div className="flex flex-col md:flex-row items-center gap-4 mb-2">
+                                        <h1 className="text-4xl font-black text-blue-900 tracking-tight">{profile?.name || user?.displayName || 'Siswa Kampion'}</h1>
+                                        <span className="px-4 py-1.5 rounded-full bg-blue-50 text-blue-600 text-[10px] font-bold uppercase tracking-widest border border-blue-100">Premium Student</span>
+                                    </div>
+                                    <p className="text-slate-500 font-medium text-lg mb-8 max-w-2xl">
+                                        Siap melanjutkan petualangan matematikamu hari ini?
                                     </p>
 
-                                    <div className="mb-8">
-                                        <div className="flex justify-between items-end mb-2">
-                                            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                                                {(lastActiveSession?.topic || 'Aljabar').toUpperCase()} DASAR
-                                            </span>
-                                            <span className="text-xs font-bold text-white">
-                                                {Math.round(topicProgress[lastActiveSession?.topic || 'aljabar'] || 0)}%
-                                            </span>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total XP</div>
+                                            <div className="text-2xl font-black text-blue-600">{xp.toLocaleString()}</div>
                                         </div>
-                                        <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
-                                            <div
-                                                className="h-full bg-blue-500 rounded-full relative"
-                                                style={{ width: `${Math.round(topicProgress[lastActiveSession?.topic || 'aljabar'] || 10)}%` }}
-                                            >
-                                                <div className="absolute right-0 top-0 bottom-0 w-2 bg-white/50 blur-[2px]"></div>
+                                        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Streak</div>
+                                            <div className="text-2xl font-black text-orange-500 flex items-center gap-1">
+                                                {streak} <span className="text-sm">🔥</span>
+                                            </div>
+                                        </div>
+                                        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Badges</div>
+                                            <div className="text-2xl font-black text-purple-600 flex items-center gap-1">
+                                                {badgesCount} <span className="text-sm">🎖️</span>
+                                            </div>
+                                        </div>
+                                        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Level Max</div>
+                                            <div className="text-2xl font-black text-emerald-600">
+                                                {Math.max(...Object.values(topicLevels).concat(1))}
                                             </div>
                                         </div>
                                     </div>
-
-                                    <button
-                                        onClick={handleResumeLearning}
-                                        className="w-full py-4 bg-blue-600 text-white font-bold rounded-2xl shadow-lg shadow-blue-600/30 hover:bg-blue-500 transition-all hover:-translate-y-1 hover:shadow-blue-600/50"
-                                    >
-                                        LANJUTKAN SEKARANG
-                                    </button>
                                 </div>
-                                <div className="absolute bottom-0 right-0 w-48 h-48 bg-blue-600/10 rounded-full blur-3xl -mb-12 -mr-12"></div>
                             </div>
-                        </section>
+
+                            {/* Background Decor */}
+                            <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-blue-50 to-indigo-50/50 rounded-full blur-3xl -mr-32 -mt-32 -z-10"></div>
+                        </div>
+
 
                         {/* 2. Topic Grid */}
                         <section>
@@ -547,47 +518,73 @@ export default function DashboardPage() {
                                     <button className="w-10 h-10 rounded-xl border border-slate-200 flex items-center justify-center text-slate-400 hover:bg-slate-50">→</button>
                                 </div>
                             </div>
-                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
-                                {TOPICS.map((topic) => {
-                                    const prog = Math.round(topicProgress[topic.id] || 0);
-                                    // Unlock Logic: Previous topic must be >= Level 3 (simplified) or Open Access
-                                    const isLocked = false; // Decoupled progress means all open, or implement specific logic
-
-                                    const currentLevel = topicLevels[topic.id] || 1;
-                                    const isMastered = currentLevel > 5;
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                {[
+                                    { id: 'aljabar', title: 'Aljabar', icon: '📐', level: topicLevels['aljabar'] || 1, maxLevel: 5, color: 'blue' },
+                                    { id: 'geometri', title: 'Geometri', icon: '🔺', level: topicLevels['geometri'] || 1, maxLevel: 5, color: 'emerald', locked: (topicLevels['aljabar'] || 1) < 5 },
+                                    { id: 'trigonometri', title: 'Trigonometri', icon: '📏', level: topicLevels['trigonometri'] || 1, maxLevel: 5, color: 'violet', locked: (topicLevels['geometri'] || 1) < 5 }
+                                ].map((topic) => {
+                                    const isMastered = topic.level > topic.maxLevel;
+                                    const progress = Math.min(((topic.level - 1) / 5) * 100, 100);
 
                                     return (
                                         <button
                                             key={topic.id}
-                                            disabled={isLocked}
-                                            onClick={() => !isLocked && handleTopicClick(topic.id)}
-                                            className={`group bg-white p-6 rounded-[2rem] border shadow-[0_10px_30px_rgba(0,0,0,0.02)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.05)] transition-all hover:-translate-y-2 flex flex-col items-center text-center relative overflow-hidden
-                                                ${isMastered ? 'border-emerald-200 bg-emerald-50/30' : 'border-slate-50'}
+                                            disabled={topic.locked}
+                                            onClick={() => {
+                                                if (!topic.locked) {
+                                                    setSelectedTopic(topic.id);
+                                                    setView('TOPIC_MASTER');
+                                                }
+                                            }}
+                                            className={`group relative p-8 rounded-[2.5rem] border transition-all duration-300 text-left overflow-hidden
+                                                ${topic.locked
+                                                    ? 'bg-slate-50 border-slate-100 opacity-60 cursor-not-allowed grayscale'
+                                                    : 'bg-white border-slate-100 hover:border-blue-300 hover:shadow-[0_20px_50px_-12px_rgba(37,99,235,0.2)] hover:-translate-y-1 shadow-[0_10px_30px_rgba(0,0,0,0.02)]'
+                                                }
                                             `}
                                         >
-                                            {isMastered && (
-                                                <div className="absolute top-0 right-0 bg-emerald-500 text-white text-[8px] font-black uppercase px-2 py-1 rounded-bl-xl">
-                                                    LULUS
+                                            <div className="flex items-center justify-between mb-8 relative z-10">
+                                                <div className={`w-16 h-16 rounded-3xl flex items-center justify-center text-3xl shadow-sm transition-transform group-hover:scale-110 duration-500
+                                                    ${topic.locked ? 'bg-slate-100 text-slate-400' : 'bg-gradient-to-br from-white to-blue-50 text-blue-600 shadow-blue-100'}
+                                                `}>
+                                                    {topic.icon}
                                                 </div>
-                                            )}
-                                            <div className="w-14 h-14 rounded-full bg-slate-50 flex items-center justify-center text-2xl mb-4 group-hover:scale-110 transition-transform">
-                                                {topic.icon}
+                                                {isMastered && (
+                                                    <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-lg border-4 border-white shadow-lg shadow-emerald-100 animate-in zoom-in duration-300">
+                                                        ✓
+                                                    </div>
+                                                )}
+                                                {topic.locked && (
+                                                    <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center text-sm border-4 border-white">
+                                                        🔒
+                                                    </div>
+                                                )}
                                             </div>
-                                            <span className={`text-[10px] font-black uppercase tracking-widest mb-1 group-hover:text-blue-500 transition-colors ${isMastered ? 'text-emerald-600' : 'text-slate-400'}`}>
-                                                {topic.name}
-                                            </span>
 
-                                            {isMastered ? (
-                                                <div className="mt-3 text-xs font-bold text-emerald-600 flex items-center gap-1">
-                                                    MASTERED 🏆
+                                            <div className="relative z-10">
+                                                <h3 className={`text-2xl font-black mb-2 ${topic.locked ? 'text-slate-400' : 'text-blue-900 group-hover:text-blue-700 transition-colors'}`}>
+                                                    {topic.title}
+                                                </h3>
+                                                <div className="flex items-center gap-3">
+                                                    <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                                        <div
+                                                            className={`h-full rounded-full transition-all duration-1000 ${topic.locked ? 'bg-slate-300' : 'bg-blue-500'}`}
+                                                            style={{ width: `${isMastered ? 100 : progress}%` }}
+                                                        ></div>
+                                                    </div>
+                                                    <span className="text-sm font-bold text-slate-400">
+                                                        Lvl {topic.level > 5 ? 'Max' : topic.level}
+                                                    </span>
                                                 </div>
-                                            ) : (
-                                                <div className="w-12 h-1 bg-slate-100 rounded-full mt-3 overflow-hidden">
-                                                    <div className="h-full bg-blue-500 rounded-full" style={{ width: `${prog}%` }}></div>
-                                                </div>
+                                            </div>
+
+                                            {/* Decor */}
+                                            {!topic.locked && (
+                                                <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-blue-500/5 rounded-full blur-3xl group-hover:bg-blue-500/10 transition-colors duration-500"></div>
                                             )}
                                         </button>
-                                    )
+                                    );
                                 })}
                             </div>
                         </section>
@@ -639,19 +636,15 @@ export default function DashboardPage() {
                 )}
 
                 {/* 4. Placeholder Views for Other Tabs (To make buttons feel active) */}
-                {view === 'VAULT' && (
-                    <div className="text-center py-20">
-                        <div className="text-6xl mb-4">🗂️</div>
-                        <h2 className="text-2xl font-bold text-slate-800">Learning Vault</h2>
-                        <p className="text-slate-500 mt-2">Koleksi materi yang sudah kamu selesaikan akan muncul di sini.</p>
-                        <button onClick={() => setView('DASHBOARD')} className="mt-8 px-6 py-2 bg-slate-100 rounded-xl font-bold text-slate-600 hover:bg-slate-200">Kembali ke Home</button>
-                    </div>
-                )}
-
                 {view === 'STATS' && (
                     <StatisticDetail
                         user={user}
                         onBack={() => setView('DASHBOARD')}
+                        onNavigate={(topicId) => {
+                            setSelectedTopic(topicId);
+                            setView('TOPIC_MASTER');
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
                     />
                 )}
 
@@ -690,14 +683,6 @@ export default function DashboardPage() {
                         </button>
 
                         <button
-                            onClick={() => setView('VAULT')}
-                            className={`flex flex-col items-center justify-center w-16 h-12 rounded-full transition-all duration-300 ${view === 'VAULT' ? 'bg-white/20 text-white translate-y-[-2px]' : 'hover:bg-white/10 text-slate-400'}`}
-                        >
-                            <span className="text-xl">🗂️</span>
-                            <span className="text-[8px] font-bold uppercase tracking-widest mt-0.5">Vault</span>
-                        </button>
-
-                        <button
                             onClick={() => setView('STATS')}
                             className={`flex flex-col items-center justify-center w-16 h-12 rounded-full transition-all duration-300 ${view === 'STATS' ? 'bg-white/20 text-white translate-y-[-2px]' : 'hover:bg-white/10 text-slate-400'}`}
                         >
@@ -715,6 +700,6 @@ export default function DashboardPage() {
                     </nav>
                 </div>
             </main>
-        </div>
+        </div >
     );
 }

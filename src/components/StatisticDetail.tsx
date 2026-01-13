@@ -8,9 +8,10 @@ import jsPDF from 'jspdf';
 interface StatisticDetailProps {
     user: any;
     onBack: () => void;
+    onNavigate?: (topicId: string) => void;
 }
 
-export default function StatisticDetail({ user, onBack }: StatisticDetailProps) {
+export default function StatisticDetail({ user, onBack, onNavigate }: StatisticDetailProps) {
     const [loading, setLoading] = useState(true);
     const [sessions, setSessions] = useState<any[]>([]);
     const [emotionData, setEmotionData] = useState<any[]>([]);
@@ -163,37 +164,72 @@ export default function StatisticDetail({ user, onBack }: StatisticDetailProps) 
         }
     };
 
-    const handleSpeak = (text: string) => {
-        if (isMuted) {
-            window.speechSynthesis?.cancel();
-            return;
-        }
 
-        if ('speechSynthesis' in window) {
-            // Cancel any current speaking
-            window.speechSynthesis.cancel();
 
-            // Persona Intro Injection
-            // Only add intro if it's not already in the text
-            let textToSpeak = text;
-            if (!text.toLowerCase().includes("lumi")) {
-                textToSpeak = "Halo! Teman Belajar. Aku Lumi. Berikut analisis belajarmu. " + text;
+    const generateInsight = async (eData: any[], tData: any[], topicLevels: Record<string, number>, domStyle: string, totalHrs: string) => {
+        setInsightLoading(true);
+        setDominantStyle(domStyle);
+        setTotalStudyHours(totalHrs);
+
+        // Persiapan konteks data untuk AI
+        const weakList = weakAreas.map(w => `- Materi: "${w.question}" (${w.count}x kesalahan)`).join('\n') || "Luar biasa! Tidak ada pola kesalahan yang menonjol.";
+        const topicSummary = Object.entries(topicLevels).map(([t, l]) => `${t} (Level ${l})`).join(', ');
+        const topEmotions = eData.filter((e: any) => e.A > 0).map((e: any) => `${e.subject} (Skor: ${e.A})`).join(', ');
+
+        try {
+            const res = await fetch('/api/adaptive', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    mode: 'REPORT',
+                    text: `
+SISTEM INSTRUKSI: Anda adalah Lumi, mentor AI jenius. Tugas Anda adalah membuat LAPORAN ANALISIS NARATIF YANG PANJANG DAN MENDALAM (minimal 4 paragraf besar).
+
+DATA INPUT SISWA:
+- Gaya Belajar: ${domStyle}
+- Waktu Belajar: ${totalHrs} Jam
+- Emosi Dominan: ${topEmotions}
+- Penguasaan Materi: ${topicSummary}
+- Catatan Kesalahan: ${weakList}
+
+STRUKTUR LAPORAN WAJIB (Gunakan Markdown):
+
+# 🌟 Laporan Analisis Kampion Matematika Anda
+
+### 🧠 Analisis Psikologi & Kesiapan Belajar
+Bedah hubungan antara emosi ${topEmotions} dengan gaya belajar ${domStyle}. Jelaskan secara ilmiah namun hangat bagaimana perasaan ini memengaruhi penyerapan materi. Jika ada 'Joy', jelaskan bahwa siswa berada dalam kondisi "Flow". Jika ada 'Fear', berikan validasi emosional bahwa tantangan adalah bagian dari pertumbuhan.
+
+### 📐 Bedah Teknis Performa Kurikulum
+Evaluasi penguasaan pada topik: ${topicSummary}.
+- **Geometri**: Gunakan referensi dari Geometri.pdf. Bahas pemahaman tentang unsur tidak didefinisikan (titik/garis) atau Kaidah Euler (S+T=R+2) jika relevan[cite: 76, 704].
+- **Trigonometri**: Gunakan referensi dari Trigonometri.docx. Bahas penguasaan konsep SinDemi, KosSami, TanDesa, atau Sudut Elevasi[cite: 14, 55].
+Sebutkan secara spesifik di bagian mana siswa tampil sangat kuat.
+
+### 💡 Strategi Perbaikan & Saran Personal
+Berikan minimal 3 saran taktis yang sangat spesifik untuk memperbaiki kesalahan berikut:
+${weakList}
+Saran harus disesuaikan dengan gaya belajar ${domStyle}. Contoh: Untuk Visual, sarankan membuat peta konsep warna-warni. Untuk Kinestetik, sarankan mempraktikkan sudut dengan benda nyata.
+
+### 🚀 Pesan Motivasi & Langkah Kedepan
+Berikan paragraf penutup yang panjang dan sangat menginspirasi. Katakan mengapa mereka sudah siap menjadi 'Kampion' sejati di topik berikutnya.
+
+NADA: Sangat Detail, Profesional, Empatik, dan Menginspirasi. DILARANG MEMBERIKAN JAWABAN PENDEK.`,
+                    topic: 'Evaluasi Progres Belajar',
+                    style: domStyle
+                })
+            });
+
+            const json = await res.json();
+            if (json.explanation) {
+                setAiInsight(json.explanation);
+                setIsOffline(json.isOffline || false);
             }
-
-            // Strip Markdown for clean speech
-            const cleanText = textToSpeak
-                .replace(/\*\*/g, '')
-                .replace(/###/g, '')
-                .replace(/>/g, '')
-                .replace(/`/g, '')
-                .replace(/-/g, ' poin ');
-
-            const utterance = new SpeechSynthesisUtterance(cleanText);
-            utterance.lang = 'id-ID';
-            utterance.rate = 1.0;
-            utterance.pitch = 1.1; // Friendly tone
-
-            window.speechSynthesis.speak(utterance);
+        } catch (e) {
+            console.error("AI Insight gagal:", e);
+            setAiInsight(`### 📦 Analisis Progres Lokal\nLumi saat ini sedang mengkalibrasi data besar, namun berdasarkan catatan lokal, dedikasi belajarmu selama **${totalHrs} jam** pada materi **${topicSummary}** menunjukkan potensi besar untuk menjadi ahli matematika!`);
+            setIsOffline(true);
+        } finally {
+            setInsightLoading(false);
         }
     };
 
@@ -204,61 +240,32 @@ export default function StatisticDetail({ user, onBack }: StatisticDetailProps) 
         setIsMuted(prev => !prev);
     };
 
-    const generateInsight = async (eData: any[], tData: any[], topicLevels: Record<string, number>, domStyle: string, totalHrs: string) => {
-        setInsightLoading(true);
-        // Set local state for UI
-        setDominantStyle(domStyle);
-        setTotalStudyHours(totalHrs);
+    // Advanced Text-to-Speech with Chunking for Long Text
+    const handleSpeak = (text: string) => {
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel(); // Stop valid utterances
 
-        try {
-            const topEmotion = eData.reduce((prev, current) => (prev.A > current.A) ? prev : current).subject;
-            const avgAccuracy = tData.reduce((sum: number, item: any) => sum + item.accuracy, 0) / tData.length || 0;
-            const emotionSummary = eData.map(e => `${e.subject}: ${e.A}`).join(', ');
-            const topicSummary = Object.entries(topicLevels).map(([t, l]) => `${t} (Level ${l})`).join(', ');
+            // Strip markdown for cleaner reading
+            const cleanText = text.replace(/[#*`]/g, '').replace(/\$\$/g, '').replace(/\$/g, ' ');
 
-            const res = await fetch('/api/adaptive', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    mode: 'REPORT',
-                    text: `
-USER PROFILE:
-- Gaya Belajar Dominan: ${domStyle}
-- Total Jam Belajar: ${totalHrs} jam
-- Emosi Dominan (Plutchik): ${topEmotion}
-- Peta Emosi: ${emotionSummary}
-- Rata-rata Akurasi: ${Math.round(avgAccuracy)}%
-- Penguasaan Topik: ${topicSummary || "Belum ada data topik spesifik"}
+            // Split into sentences/chunks (max 150 chars roughly or by punctuation)
+            const sentences = cleanText.match(/[^.!?]+[.!?]+/g) || [cleanText];
 
-INSTRUCTION:
-Sebagai Lumi, berikan analisis mendalam dan personal (maksimal 2 paragraf).
-1. Hubungkan Gaya Belajar (${domStyle}) dengan performa mereka.
-2. Analisis hubungan Emosi (${topEmotion}) dengan hasil belajar.
-3. Berikan saran spesifik untuk materi selanjutnya berdasarkan top level (${topicSummary}).
-Gunakan bahasa yang memotivasi dan hangat.`,
-                    topic: 'Laporan Progres',
-                    style: 'VISUAL'
-                })
+            sentences.forEach((sentence, index) => {
+                const utterance = new SpeechSynthesisUtterance(sentence.trim());
+                utterance.lang = 'id-ID';
+                utterance.rate = 1.0;
+                utterance.pitch = 1.1; // Slightly higher for Lumi's cheerfulness
+
+                // Add slight pause between paragraphs/sentences
+                if (index < sentences.length - 1) {
+                    // utterance.onend handled automatically by queue
+                }
+
+                window.speechSynthesis.speak(utterance);
             });
 
-            const json = await res.json();
-            if (json.explanation) {
-                setAiInsight(json.explanation);
-                setIsOffline(json.isOffline || false);
-                // Auto-speak if not muted? Better let user click play.
-            }
-        } catch (e) {
-            console.error("AI Insight failed", e);
-            setAiInsight(`### ✨ Hai! Lumi Offline Mode
-
-                ** Lumi sedang beristirahat 😴**
-                    Tapi data belajarmu aman! Kamu sudah mencapai progress hebat di:
-${Object.entries(topicLevels).map(([t, l]) => `- **${t}**: Level ${l}`).join('\n')}
-
-Terus semangat! 💡`);
-            setIsOffline(true);
-        } finally {
-            setInsightLoading(false);
+            setIsMuted(false);
         }
     };
 
@@ -598,27 +605,43 @@ Terus semangat! 💡`);
             </div>
 
             {/* 4. SUCCESS & NEXT STEPS */}
-            {
-                Object.entries(topicMastery).some(([t, l]) => t === 'Aljabar' && l >= 5) && (
-                    <div className="mt-8 p-8 bg-gradient-to-r from-emerald-400 to-teal-500 rounded-[2.5rem] shadow-xl shadow-emerald-200 text-white relative overflow-hidden animate-bounce-slow">
-                        <div className="absolute top-0 right-0 opacity-10 text-[10rem] font-black -mr-10 -mt-10">GO</div>
-                        <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
-                            <div>
-                                <h3 className="text-3xl font-black mb-2">🎉 Luar Biasa! Aljabar Tamat!</h3>
-                                <p className="text-emerald-50 text-lg font-medium max-w-xl">
-                                    Kamu telah menguasai fundamental Aljabar dengan sangat baik. Dunia Geometri yang penuh bentuk visual sudah menantimu!
-                                </p>
-                            </div>
-                            <button
-                                onClick={onBack}
-                                className="px-8 py-4 bg-white text-emerald-600 font-black rounded-2xl shadow-lg hover:scale-105 transition-transform text-lg"
-                            >
-                                Lanjut ke Geometri 📐
-                            </button>
+            {topicMastery['Geometri'] >= 5 ? (
+                <div className="mt-8 p-8 bg-gradient-to-r from-violet-500 to-purple-600 rounded-[2.5rem] shadow-xl shadow-violet-200 text-white relative overflow-hidden animate-bounce-slow">
+                    <div className="absolute top-0 right-0 opacity-10 text-[10rem] font-black -mr-10 -mt-10">MAX</div>
+                    <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
+                        <div>
+                            <h3 className="text-3xl font-black mb-2">🎉 Geometri Mastered!</h3>
+                            <p className="text-violet-50 text-lg font-medium max-w-xl">
+                                Kemampuan spasialmu luar biasa! Tantangan terakhir menanti di Trigonometri.
+                            </p>
                         </div>
+                        <button
+                            onClick={() => onNavigate ? onNavigate('trigonometri') : onBack()}
+                            className="px-8 py-4 bg-white text-violet-600 font-black rounded-2xl shadow-lg hover:scale-105 transition-transform text-lg"
+                        >
+                            Lanjut ke Trigonometri 📐
+                        </button>
                     </div>
-                )
-            }
+                </div>
+            ) : topicMastery['Aljabar'] >= 5 && (
+                <div className="mt-8 p-8 bg-gradient-to-r from-emerald-400 to-teal-500 rounded-[2.5rem] shadow-xl shadow-emerald-200 text-white relative overflow-hidden animate-bounce-slow">
+                    <div className="absolute top-0 right-0 opacity-10 text-[10rem] font-black -mr-10 -mt-10">GO</div>
+                    <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
+                        <div>
+                            <h3 className="text-3xl font-black mb-2">🎉 Luar Biasa! Aljabar Tamat!</h3>
+                            <p className="text-emerald-50 text-lg font-medium max-w-xl">
+                                Kamu telah menguasai fundamental Aljabar dengan sangat baik. Dunia Geometri yang penuh bentuk visual sudah menantimu!
+                            </p>
+                        </div>
+                        <button
+                            onClick={() => onNavigate ? onNavigate('geometri') : onBack()}
+                            className="px-8 py-4 bg-white text-emerald-600 font-black rounded-2xl shadow-lg hover:scale-105 transition-transform text-lg"
+                        >
+                            Lanjut ke Geometri 📐
+                        </button>
+                    </div>
+                </div>
+            )}
 
             <div className="text-center pt-8 pb-4">
                 <button onClick={onBack} className="text-slate-400 hover:text-slate-600 font-bold uppercase tracking-widest text-sm transition-colors">
