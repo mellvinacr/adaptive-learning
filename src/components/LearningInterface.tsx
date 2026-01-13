@@ -596,7 +596,7 @@ $$ \\text{Sukses} = \\text{Usaha} + \\text{Konsistensi} $$
     const isAnxious = evaluation?.emotion && ['Fear', 'Sad', 'Sadness', 'Disgust', 'Surprise'].includes(evaluation.emotion);
 
     return (
-        <div className="max-w-3xl mx-auto bg-white rounded-[2.5rem] shadow-[0_20px_60px_rgba(0,0,0,0.05)] border border-slate-100 overflow-hidden min-h-[500px] flex flex-col font-sans mb-20 relative">
+        <div className="max-w-3xl mx-auto bg-white/90 backdrop-blur-xl rounded-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/50 overflow-hidden min-h-[500px] flex flex-col font-sans mb-20 relative ring-1 ring-slate-900/5">
 
             {/* TOAST NOTIFICATION */}
             {showToast && (
@@ -611,7 +611,7 @@ $$ \\text{Sukses} = \\text{Usaha} + \\text{Konsistensi} $$
             )}
 
             {/* Header / Standardized */}
-            <div className="bg-slate-50 px-8 py-6 border-b border-slate-100 flex justify-between items-center">
+            <div className="bg-white/50 px-8 py-6 border-b border-slate-100/50 flex justify-between items-center backdrop-blur-sm">
                 <button
                     onClick={() => window.location.href = '/dashboard'}
                     className="flex items-center gap-2 text-slate-400 hover:text-slate-600 font-bold text-xs uppercase tracking-widest transition-colors mr-4"

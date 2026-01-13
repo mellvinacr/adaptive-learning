@@ -122,7 +122,8 @@ export default function TopicMastery({ topicId, onBack, onStartLevel, currentLev
                 {/* 3. Level Cards List */}
                 <div className="space-y-4 relative">
                     {/* Vertical Line Connector */}
-                    <div className="absolute left-[28px] top-6 bottom-6 w-0.5 bg-slate-200 -z-10 hidden sm:block"></div>
+                    {/* Vertical Line Connector (Dotted) */}
+                    <div className="absolute left-[28px] top-6 bottom-6 w-px border-l-2 border-dashed border-slate-300/60 -z-10 hidden sm:block"></div>
 
                     {levels.map((lvl) => (
                         <div key={lvl.level} className="relative group">

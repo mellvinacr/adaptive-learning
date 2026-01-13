@@ -369,13 +369,13 @@ NADA: Sangat Detail, Profesional, Empatik, dan Menginspirasi. DILARANG MEMBERIKA
             <div className="flex items-center justify-between flex-wrap gap-4">
                 <div>
                     <h2 className="text-3xl font-black text-slate-900">Analisis Performa &amp; Emosi 🧠</h2>
-                    <p className="text-slate-500 font-medium">Laporan mendalam tentang gaya belajar dan psikologimu.</p>
+                    <p className="text-slate-500 font-medium">Laporan mendalam tentang pola belajarmu.</p>
                 </div>
                 <div className="flex items-center gap-3">
                     {/* PDF Download Button */}
                     <button
                         onClick={exportToPDF}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm uppercase tracking-wider transition-all shadow-sm hover:shadow-md"
+                        className="flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-sm uppercase tracking-wider transition-all shadow-sm hover:shadow-md"
                     >
                         📄 Unduh PDF
                     </button>
@@ -390,29 +390,29 @@ NADA: Sangat Detail, Profesional, Empatik, dan Menginspirasi. DILARANG MEMBERIKA
             </div>
 
             {/* 0. STUDENT PROFILE SUMMARY */}
-            <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-indigo-100 flex flex-col md:flex-row items-center justify-between gap-8 relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50 rounded-full opacity-50 -mr-16 -mt-16 blur-2xl"></div>
+            <div className="bg-[#020617] rounded-[2rem] p-10 shadow-[0_0_30px_rgba(59,130,246,0.15)] border border-blue-500/30 flex flex-col md:flex-row items-center justify-between gap-8 relative overflow-hidden text-white group hover:shadow-[0_0_50px_rgba(59,130,246,0.25)] transition-all duration-500">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/10 rounded-full opacity-50 -mr-16 -mt-16 blur-2xl animate-pulse"></div>
 
                 <div className="flex items-center gap-6 relative z-10">
-                    <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-4xl shadow-xl shadow-indigo-200 animate-fade-in-up">
+                    <div className="w-24 h-24 rounded-full bg-slate-950 border-2 border-blue-500/30 flex items-center justify-center text-4xl shadow-[0_0_15px_rgba(59,130,246,0.2)] animate-fade-in-up">
                         {dominantStyle === 'VISUAL' ? '🎨' : dominantStyle === 'AUDITORY' ? '🎧' : '🛠️'}
                     </div>
                     <div>
-                        <div className="text-sm font-bold text-indigo-400 tracking-widest uppercase mb-1">Gaya Belajar</div>
-                        <h3 className="text-3xl font-black text-slate-900">{dominantStyle} Learner</h3>
-                        <p className="text-slate-500 font-medium">Kamu paling cepat paham lewat {dominantStyle === 'VISUAL' ? 'Gambar & Visual' : dominantStyle === 'AUDITORY' ? 'Suara & Cerita' : 'Praktek Langsung'}.</p>
+                        <div className="text-sm font-bold text-blue-400 tracking-widest uppercase mb-1 drop-shadow-[0_0_5px_rgba(59,130,246,0.5)]">Gaya Belajar</div>
+                        <h3 className="text-3xl font-black text-white">{dominantStyle} Learner</h3>
+                        <p className="text-blue-200/60 font-medium">Kamu paling cepat paham lewat {dominantStyle === 'VISUAL' ? 'Gambar & Visual' : dominantStyle === 'AUDITORY' ? 'Suara & Cerita' : 'Praktek Langsung'}.</p>
                     </div>
                 </div>
 
                 <div className="flex gap-8 relative z-10">
                     <div className="text-right">
-                        <div className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-1">Total Fokus</div>
-                        <div className="text-4xl font-black text-slate-900">{totalStudyHours}<span className="text-lg text-slate-400 ml-1">Jam</span></div>
+                        <div className="text-sm font-bold text-blue-400 uppercase tracking-widest mb-1">Total Fokus</div>
+                        <div className="text-4xl font-black text-white">{totalStudyHours}<span className="text-lg text-slate-500 ml-1">Jam</span></div>
                     </div>
-                    <div className="w-px bg-slate-100 h-16"></div>
+                    <div className="w-px bg-blue-500/20 h-16"></div>
                     <div className="text-right">
-                        <div className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-1">Badge</div>
-                        <div className="text-4xl font-black text-slate-900">
+                        <div className="text-sm font-bold text-blue-400 uppercase tracking-widest mb-1">Badge</div>
+                        <div className="text-4xl font-black text-white">
                             {Object.entries(topicMastery).some(([_, l]) => l >= 5) ? '🥇' : '🌱'}
                         </div>
                     </div>
@@ -421,27 +421,27 @@ NADA: Sangat Detail, Profesional, Empatik, dan Menginspirasi. DILARANG MEMBERIKA
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* 1. Radar Chart - Emotions */}
-                <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 relative overflow-hidden">
-                    <h3 className="text-lg font-black text-slate-900 mb-6 flex items-center gap-2">
-                        <span className="text-2xl">❤️</span> Peta Emosi Belajar (Plutchik)
+                <div className="bg-[#020617] p-8 rounded-[2.5rem] shadow-[0_0_30px_rgba(59,130,246,0.15)] border border-blue-500/30 relative overflow-hidden">
+                    <h3 className="text-lg font-black text-white mb-6 flex items-center gap-2">
+                        <span className="text-2xl">❤️</span> Peta Emosi Belajar
                     </h3>
                     <div className="h-[300px] w-full relative z-10">
                         <ResponsiveContainer width="100%" height="100%">
                             <RadarChart cx="50%" cy="50%" outerRadius="80%" data={emotionData}>
-                                <PolarGrid gridType="polygon" stroke="#f1f5f9" />
-                                <PolarAngleAxis dataKey="subject" tick={{ fill: '#64748b', fontSize: 10, fontWeight: 700 }} />
+                                <PolarGrid gridType="polygon" stroke="#1e293b" />
+                                <PolarAngleAxis dataKey="subject" tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }} />
                                 <PolarRadiusAxis angle={30} domain={[0, 'auto']} tick={false} axisLine={false} />
                                 <Radar
                                     name="Intensitas"
                                     dataKey="A"
-                                    stroke="#2563eb"
+                                    stroke="#38bdf8"
                                     strokeWidth={3}
-                                    fill="#3b82f6"
-                                    fillOpacity={0.3}
+                                    fill="#38bdf8"
+                                    fillOpacity={0.2}
                                 />
                                 <RechartsTooltip
-                                    contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
-                                    itemStyle={{ color: '#1e293b', fontWeight: 'bold' }}
+                                    contentStyle={{ borderRadius: 12, border: '1px solid rgba(59,130,246,0.3)', backgroundColor: '#020617', color: '#fff', boxShadow: '0 0 20px rgba(59,130,246,0.2)' }}
+                                    itemStyle={{ color: '#fff' }}
                                 />
                             </RadarChart>
                         </ResponsiveContainer>
@@ -449,42 +449,42 @@ NADA: Sangat Detail, Profesional, Empatik, dan Menginspirasi. DILARANG MEMBERIKA
                 </div>
 
                 {/* 2. Line Chart - Trends */}
-                <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 relative overflow-hidden">
-                    <h3 className="text-lg font-black text-slate-900 mb-6 flex items-center gap-2">
+                <div className="bg-[#020617] p-8 rounded-[2.5rem] shadow-[0_0_30px_rgba(59,130,246,0.15)] border border-blue-500/30 relative overflow-hidden">
+                    <h3 className="text-lg font-black text-white mb-6 flex items-center gap-2">
                         <span className="text-2xl">📈</span> Tren Akurasi & Fokus
                     </h3>
                     <div className="h-[300px] w-full relative z-10">
                         <ResponsiveContainer width="100%" height="100%">
                             <LineChart data={trendData}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1e293b" />
                                 <XAxis
                                     dataKey="name"
                                     axisLine={false}
                                     tickLine={false}
-                                    tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }}
+                                    tick={{ fill: '#64748b', fontSize: 10, fontWeight: 700 }}
                                     dy={10}
                                 />
                                 <YAxis hide />
                                 <RechartsTooltip
-                                    contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
+                                    contentStyle={{ borderRadius: 12, border: '1px solid rgba(59,130,246,0.3)', backgroundColor: '#020617', color: '#fff', boxShadow: '0 0 20px rgba(59,130,246,0.2)' }}
                                 />
                                 <Legend wrapperStyle={{ paddingTop: '20px' }} />
                                 <Line
                                     type="monotone"
                                     dataKey="accuracy"
                                     name="Akurasi (%)"
-                                    stroke="#2563eb"
+                                    stroke="#38bdf8"
                                     strokeWidth={4}
-                                    dot={{ r: 4, fill: '#2563eb', strokeWidth: 2, stroke: '#fff' }}
+                                    dot={{ r: 4, fill: '#38bdf8', strokeWidth: 2, stroke: '#020617' }}
                                     activeDot={{ r: 6 }}
                                 />
                                 <Line
                                     type="monotone"
                                     dataKey="hours"
                                     name="Waktu (Jam)"
-                                    stroke="#10b981"
+                                    stroke="#6366f1"
                                     strokeWidth={4}
-                                    dot={{ r: 4, fill: '#10b981', strokeWidth: 2, stroke: '#fff' }}
+                                    dot={{ r: 4, fill: '#6366f1', strokeWidth: 2, stroke: '#020617' }}
                                 />
                             </LineChart>
                         </ResponsiveContainer>
@@ -493,31 +493,31 @@ NADA: Sangat Detail, Profesional, Empatik, dan Menginspirasi. DILARANG MEMBERIKA
 
 
                 {/* 3. Top Weaknesses - "Focus Zone" */}
-                <div className="md:col-span-2 bg-white p-8 rounded-[2.5rem] shadow-sm border border-rose-100 relative overflow-hidden">
-                    <h3 className="text-lg font-black text-slate-900 mb-6 flex items-center gap-2">
+                <div className="md:col-span-2 bg-[#020617] p-8 rounded-[2.5rem] shadow-[0_0_30px_rgba(59,130,246,0.15)] border border-blue-500/30 relative overflow-hidden">
+                    <h3 className="text-lg font-black text-white mb-6 flex items-center gap-2">
                         <span className="text-2xl">🎯</span> Zona Fokus (Perlu Latihan)
                     </h3>
 
                     {weakAreas.length > 0 ? (
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             {weakAreas.map((item, idx) => (
-                                <div key={idx} className="bg-rose-50 p-6 rounded-2xl border border-rose-100 flex flex-col">
+                                <div key={idx} className="bg-slate-950 p-6 rounded-2xl border border-blue-500/20 flex flex-col hover:border-blue-500/50 transition-colors">
                                     <div className="flex items-center justify-between mb-3">
-                                        <div className="w-8 h-8 rounded-full bg-rose-200 text-rose-700 flex items-center justify-center font-bold text-sm">
+                                        <div className="w-8 h-8 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center font-bold text-sm border border-rose-500/30">
                                             {idx + 1}
                                         </div>
                                         <div className="text-xs font-bold text-rose-400 uppercase tracking-widest">
                                             {item.count}x Salah
                                         </div>
                                     </div>
-                                    <p className="text-slate-700 font-medium text-sm line-clamp-3">
+                                    <p className="text-slate-300 font-medium text-sm line-clamp-3">
                                         "{item.question}"
                                     </p>
                                 </div>
                             ))}
                         </div>
                     ) : (
-                        <div className="text-center py-10 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
+                        <div className="text-center py-10 bg-slate-950 rounded-3xl border-2 border-dashed border-slate-800">
                             <div className="text-4xl mb-4">🌟</div>
                             <h4 className="font-bold text-slate-400">Belum ada materi yang sering salah. Pertahankan!</h4>
                         </div>
@@ -529,7 +529,7 @@ NADA: Sangat Detail, Profesional, Empatik, dan Menginspirasi. DILARANG MEMBERIKA
             <div className={`rounded-[3rem] p-10 relative overflow-hidden border transition-all duration-500
                 ${isOffline
                     ? 'bg-gradient-to-br from-slate-50 to-slate-100 border-slate-200'
-                    : 'bg-gradient-to-br from-[#2563eb] to-[#1e40af] text-white shadow-2xl shadow-blue-900/20 border-white/10'
+                    : 'bg-black text-blue-50 shadow-[0_0_50px_rgba(59,130,246,0.2)] border-blue-500/30'
                 }`}>
 
                 {/* Mute Control */}
@@ -555,35 +555,35 @@ NADA: Sangat Detail, Profesional, Empatik, dan Menginspirasi. DILARANG MEMBERIKA
                 <div className="relative z-20 flex flex-col md:flex-row gap-8 items-start">
                     {/* Lumi Avatar - Modern 3D Style */}
                     <div className="flex-shrink-0 relative group cursor-pointer" onClick={() => aiInsight && handleSpeak(aiInsight)}>
-                        <div className={`w-24 h-24 rounded-[2rem] flex items-center justify-center text-5xl shadow-2xl border-4 transform transition-transform group-hover:scale-105
+                        <div className={`w-24 h-24 rounded-[2rem] flex items-center justify-center text-5xl shadow-2xl border-4 transform transition-transform group-hover:scale-105 animate-bounce duration-[3000ms]
                             ${isOffline
                                 ? 'bg-slate-200 border-white text-slate-400 grayscale'
-                                : 'bg-white border-white/20 text-blue-600'
+                                : 'bg-white border-white/20 text-blue-600 shadow-[0_0_50px_rgba(255,255,255,0.2)]'
                             }`}>
                             {insightLoading ? '⏳' : isOffline ? '😴' : '🤖'}
                         </div>
                         {!isOffline && (
-                            <div className="absolute -bottom-2 -right-2 bg-emerald-400 w-6 h-6 rounded-full border-4 border-[#1e40af]"></div>
+                            <div className="absolute -bottom-2 -right-2 bg-emerald-400 w-6 h-6 rounded-full border-4 border-black"></div>
                         )}
                     </div>
 
                     {/* Text Content */}
                     <div className="flex-1">
-                        <div className="mb-4">
-                            <h3 className={`text-2xl font-black mb-1 ${isOffline ? 'text-slate-700' : 'text-white'}`}>
+                        <div className="mb-6">
+                            <h3 className={`text-3xl font-black mb-2 ${isOffline ? 'text-slate-700' : 'text-blue-50 tracking-tight drop-shadow-[0_0_10px_rgba(59,130,246,0.5)]'}`}>
                                 {isOffline ? 'Lumi Sedang Istirahat...' : 'Lumi Smart Insights'}
                             </h3>
-                            <p className={`text-sm font-medium opacity-80 ${isOffline ? 'text-slate-500' : 'text-blue-100'}`}>
+                            <p className={`text-sm font-bold uppercase tracking-widest opacity-60 ${isOffline ? 'text-slate-500' : 'text-blue-300'}`}>
                                 {isOffline
                                     ? 'Cek koneksi internetmu untuk analisis real-time.'
                                     : 'Analisis Emosi & Strategi Belajar Personal'}
                             </p>
                         </div>
 
-                        <div className={`prose max-w-none text-lg leading-relaxed rounded-2xl p-6 backdrop-blur-sm border
+                        <div className={`prose max-w-none text-lg leading-loose rounded-3xl p-8 backdrop-blur-sm border
                             ${isOffline
                                 ? 'bg-white border-slate-100 prose-slate'
-                                : 'bg-white/10 border-white/10 prose-invert text-blue-50'
+                                : 'bg-slate-950/80 border-blue-500/20 prose-invert text-blue-50 shadow-inner'
                             }`}>
                             {insightLoading ? (
                                 <div className="flex items-center gap-3 animate-pulse">

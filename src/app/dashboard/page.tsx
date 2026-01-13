@@ -251,53 +251,52 @@ export default function DashboardPage() {
     const confirmLearningStart = (style: string) => {
         setSessionStyle(style);
         setSelectedTopic(pendingTopic);
-        // No need to setUnlockedLevel here, we rely on pendingLevel or topicLevels
         setShowStyleModal(false);
-        setView('LEARNING');
+        setView('TOPIC_MASTER'); // Go to Level List first
     };
 
     const StyleSelectionModal = () => (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white rounded-[2.5rem] p-8 max-w-4xl w-full shadow-2xl border border-white/20">
-                <div className="text-center mb-8">
-                    <h2 className="text-3xl font-black text-slate-900 mb-2">Gaya Belajarmu Hari Ini? 🧠</h2>
-                    <p className="text-slate-500 text-lg">Pilih cara AI menjelaskan materi Level {pendingLevel} untukmu.</p>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-2xl animate-in fade-in duration-300">
+            <div className="bg-[#020617] backdrop-blur-xl rounded-[2.5rem] p-10 max-w-4xl w-full shadow-2xl shadow-slate-900/50 border border-white/10 ring-1 ring-white/5">
+                <div className="text-center mb-10">
+                    <h2 className="text-3xl font-black text-white mb-3 tracking-tight">Gaya Belajarmu Hari Ini? 🧠</h2>
+                    <p className="text-slate-400 text-lg font-medium">Pilih cara AI menjelaskan materi untukmu.</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     {/* Visual */}
                     <button
                         onClick={() => confirmLearningStart('VISUAL')}
-                        className="group relative p-8 rounded-[2rem] border-2 border-slate-100 hover:border-blue-500 bg-slate-50 hover:bg-blue-50 transition-all text-left hover:-translate-y-2"
+                        className="group relative p-8 rounded-[2rem] border border-white/10 hover:border-blue-500 bg-slate-900 hover:bg-slate-800 transition-all text-left hover:-translate-y-2 hover:shadow-[0_20px_40px_-12px_rgba(56,189,248,0.2)]"
                     >
-                        <div className="text-5xl mb-6 group-hover:scale-110 transition-transform">🎨</div>
-                        <h3 className="text-xl font-black text-slate-800 mb-2 group-hover:text-blue-600">Visual</h3>
-                        <p className="text-sm text-slate-500 leading-relaxed">
-                            Penjelasan dengan banyak <strong>diagram, bagan, dan analogi gambar</strong>. Cocok buat yang suka "melihat" konsep.
+                        <div className="text-5xl mb-6 group-hover:scale-110 transition-transform drop-shadow-lg">🎨</div>
+                        <h3 className="text-xl font-black text-white mb-2 group-hover:text-blue-400">Visual</h3>
+                        <p className="text-sm text-slate-400 leading-relaxed font-medium group-hover:text-slate-300">
+                            Penjelasan dengan banyak <strong>diagram, bagan, dan analogi gambar</strong>.
                         </p>
                     </button>
 
                     {/* Auditory */}
                     <button
                         onClick={() => confirmLearningStart('AUDITORY')}
-                        className="group relative p-8 rounded-[2rem] border-2 border-slate-100 hover:border-indigo-500 bg-slate-50 hover:bg-indigo-50 transition-all text-left hover:-translate-y-2"
+                        className="group relative p-8 rounded-[2rem] border border-white/10 hover:border-indigo-500 bg-slate-900 hover:bg-slate-800 transition-all text-left hover:-translate-y-2 hover:shadow-[0_20px_40px_-12px_rgba(99,102,241,0.2)]"
                     >
-                        <div className="text-5xl mb-6 group-hover:scale-110 transition-transform">🎧</div>
-                        <h3 className="text-xl font-black text-slate-800 mb-2 group-hover:text-indigo-600">Auditori</h3>
-                        <p className="text-sm text-slate-500 leading-relaxed">
-                            Gaya <strong>bercerita (storytelling)</strong> seperti podcast. Dilengkapi Text-to-Speech untuk didengarkan.
+                        <div className="text-5xl mb-6 group-hover:scale-110 transition-transform drop-shadow-lg">🎧</div>
+                        <h3 className="text-xl font-black text-white mb-2 group-hover:text-indigo-400">Auditori</h3>
+                        <p className="text-sm text-slate-400 leading-relaxed font-medium group-hover:text-slate-300">
+                            Gaya <strong>storytelling</strong> seperti podcast dengan bantuan suara.
                         </p>
                     </button>
 
                     {/* Kinesthetic */}
                     <button
                         onClick={() => confirmLearningStart('KINESTHETIC')}
-                        className="group relative p-8 rounded-[2rem] border-2 border-slate-100 hover:border-emerald-500 bg-slate-50 hover:bg-emerald-50 transition-all text-left hover:-translate-y-2"
+                        className="group relative p-8 rounded-[2rem] border border-white/10 hover:border-emerald-500 bg-slate-900 hover:bg-slate-800 transition-all text-left hover:-translate-y-2 hover:shadow-[0_20px_40px_-12px_rgba(16,185,129,0.2)]"
                     >
-                        <div className="text-5xl mb-6 group-hover:scale-110 transition-transform">🛠️</div>
-                        <h3 className="text-xl font-black text-slate-800 mb-2 group-hover:text-emerald-600">Kinestetik</h3>
-                        <p className="text-sm text-slate-500 leading-relaxed">
-                            Belajar lewat <strong>simulasi misi</strong> dan studi kasus nyata. Langsung praktek, bukan cuma teori!
+                        <div className="text-5xl mb-6 group-hover:scale-110 transition-transform drop-shadow-lg">🛠️</div>
+                        <h3 className="text-xl font-black text-white mb-2 group-hover:text-emerald-400">Kinestetik</h3>
+                        <p className="text-sm text-slate-400 leading-relaxed font-medium group-hover:text-slate-300">
+                            Belajar lewat <strong>simulasi & studi kasus</strong>. Langsung praktek!
                         </p>
                     </button>
                 </div>
@@ -418,16 +417,16 @@ export default function DashboardPage() {
     // Ideally we would split these into components, but for now we conditional render sections.
 
     return (
-        <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-100 via-slate-50 to-white font-sans pb-32">
+        <div className="min-h-screen bg-white font-sans pb-32">
 
             {/* Modal */}
             {showStyleModal && <StyleSelectionModal />}
 
             {/* Header */}
-            <header className="bg-white/80 backdrop-blur-md sticky top-0 z-40 border-b border-slate-200/60 support-backdrop-blur:bg-white/60">
+            <header className="bg-white/90 backdrop-blur-xl sticky top-0 z-40 border-b border-slate-100 support-backdrop-blur:bg-white/95">
                 <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+                        <div className="w-10 h-10 bg-slate-950 rounded-xl flex items-center justify-center shadow-lg shadow-slate-900/20 border border-white/10">
                             <span className="text-white text-xl font-black">M</span>
                         </div>
                         <span className="font-black text-xl tracking-tight text-slate-900">MATH<span className="text-blue-600">FLOW</span></span>
@@ -458,45 +457,46 @@ export default function DashboardPage() {
 
                 {view === 'DASHBOARD' && (
                     <>
-                        {/* 1. Hero / Profile Section */}
-                        <div className="lg:col-span-12 bg-white rounded-[2.5rem] p-10 shadow-[0_20px_50px_rgba(8,_112,_184,_0.07)] border border-slate-100 relative overflow-hidden">
+                        {/* 1. Hero / Profile Section (Restored & Neonized) */}
+                        <div className="lg:col-span-12 bg-[#020617] rounded-[2.5rem] p-10 shadow-[0_0_30px_rgba(59,130,246,0.15)] border border-blue-500/30 relative overflow-hidden text-white group hover:shadow-[0_0_50px_rgba(59,130,246,0.3)] transition-all duration-500">
                             <div className="flex flex-col md:flex-row items-center gap-10 relative z-10">
-                                <div className="relative group">
-                                    <div className="w-32 h-32 rounded-[2.5rem] bg-gradient-to-br from-blue-100 to-indigo-50 border-8 border-white shadow-2xl shadow-blue-100 flex items-center justify-center text-6xl group-hover:scale-105 transition-transform duration-500">
+                                <div className="relative">
+                                    <div className="w-32 h-32 rounded-[2.5rem] bg-slate-950 border-4 border-blue-500/30 shadow-2xl shadow-blue-500/20 flex items-center justify-center text-6xl group-hover:scale-105 transition-transform duration-500 relative z-10">
                                         🎓
                                     </div>
-                                    <div className="absolute -bottom-2 -right-2 bg-blue-600 border-4 border-white w-10 h-10 rounded-2xl flex items-center justify-center text-white text-sm shadow-lg">✓</div>
+                                    <div className="absolute inset-0 bg-blue-500/20 blur-2xl rounded-full z-0 animate-pulse"></div>
+                                    <div className="absolute -bottom-2 -right-2 bg-blue-600 border-4 border-slate-900 w-10 h-10 rounded-2xl flex items-center justify-center text-white text-sm shadow-lg z-20">✓</div>
                                 </div>
 
                                 <div className="text-center md:text-left flex-1">
                                     <div className="flex flex-col md:flex-row items-center gap-4 mb-2">
-                                        <h1 className="text-4xl font-black text-blue-900 tracking-tight">{profile?.name || user?.displayName || 'Siswa Kampion'}</h1>
-                                        <span className="px-4 py-1.5 rounded-full bg-blue-50 text-blue-600 text-[10px] font-bold uppercase tracking-widest border border-blue-100">Premium Student</span>
+                                        <h1 className="text-4xl font-black text-white tracking-tight drop-shadow-[0_0_10px_rgba(59,130,246,0.5)]">{profile?.name || user?.displayName || 'Siswa Kampion'}</h1>
+                                        <span className="px-4 py-1.5 rounded-full bg-blue-950/50 text-blue-400 text-[10px] font-bold uppercase tracking-widest border border-blue-500/30 shadow-[0_0_10px_rgba(59,130,246,0.2)]">Premium Student</span>
                                     </div>
-                                    <p className="text-slate-500 font-medium text-lg mb-8 max-w-2xl">
+                                    <p className="text-blue-100/80 font-medium text-lg mb-8 max-w-2xl">
                                         Siap melanjutkan petualangan matematikamu hari ini?
                                     </p>
 
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
-                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total XP</div>
-                                            <div className="text-2xl font-black text-blue-600">{xp.toLocaleString()}</div>
+                                        <div className="bg-slate-950/50 rounded-2xl p-4 border border-blue-500/20 shadow-lg backdrop-blur-sm">
+                                            <div className="text-[10px] font-black text-blue-400/60 uppercase tracking-widest mb-1">Total XP</div>
+                                            <div className="text-2xl font-black text-blue-400 drop-shadow-[0_0_5px_rgba(59,130,246,0.5)]">{xp.toLocaleString()}</div>
                                         </div>
-                                        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
-                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Streak</div>
-                                            <div className="text-2xl font-black text-orange-500 flex items-center gap-1">
+                                        <div className="bg-slate-950/50 rounded-2xl p-4 border border-blue-500/20 shadow-lg backdrop-blur-sm">
+                                            <div className="text-[10px] font-black text-blue-400/60 uppercase tracking-widest mb-1">Streak</div>
+                                            <div className="text-2xl font-black text-orange-400 flex items-center gap-1 drop-shadow-[0_0_5px_rgba(251,146,60,0.5)]">
                                                 {streak} <span className="text-sm">🔥</span>
                                             </div>
                                         </div>
-                                        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
-                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Badges</div>
-                                            <div className="text-2xl font-black text-purple-600 flex items-center gap-1">
+                                        <div className="bg-slate-950/50 rounded-2xl p-4 border border-blue-500/20 shadow-lg backdrop-blur-sm">
+                                            <div className="text-[10px] font-black text-blue-400/60 uppercase tracking-widest mb-1">Badges</div>
+                                            <div className="text-2xl font-black text-purple-400 flex items-center gap-1 drop-shadow-[0_0_5px_rgba(192,132,252,0.5)]">
                                                 {badgesCount} <span className="text-sm">🎖️</span>
                                             </div>
                                         </div>
-                                        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
-                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Level Max</div>
-                                            <div className="text-2xl font-black text-emerald-600">
+                                        <div className="bg-slate-950/50 rounded-2xl p-4 border border-blue-500/20 shadow-lg backdrop-blur-sm">
+                                            <div className="text-[10px] font-black text-blue-400/60 uppercase tracking-widest mb-1">Level Max</div>
+                                            <div className="text-2xl font-black text-emerald-400 drop-shadow-[0_0_5px_rgba(52,211,153,0.5)]">
                                                 {Math.max(...Object.values(topicLevels).concat(1))}
                                             </div>
                                         </div>
@@ -505,24 +505,48 @@ export default function DashboardPage() {
                             </div>
 
                             {/* Background Decor */}
-                            <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-blue-50 to-indigo-50/50 rounded-full blur-3xl -mr-32 -mt-32 -z-10"></div>
+                            <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[100px] -mr-32 -mt-32 -z-10 animate-pulse-slow"></div>
+                            <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-600/10 rounded-full blur-[80px] -ml-20 -mb-20 -z-10"></div>
                         </div>
+
 
 
                         {/* 2. Topic Grid */}
                         <section>
                             <div className="flex items-center justify-between mb-8">
                                 <h2 className="text-2xl font-black text-slate-900">Kurikulum Matematika</h2>
-                                <div className="flex gap-2">
-                                    <button className="w-10 h-10 rounded-xl border border-slate-200 flex items-center justify-center text-slate-400 hover:bg-slate-50">←</button>
-                                    <button className="w-10 h-10 rounded-xl border border-slate-200 flex items-center justify-center text-slate-400 hover:bg-slate-50">→</button>
-                                </div>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 {[
-                                    { id: 'aljabar', title: 'Aljabar', icon: '📐', level: topicLevels['aljabar'] || 1, maxLevel: 5, color: 'blue' },
-                                    { id: 'geometri', title: 'Geometri', icon: '🔺', level: topicLevels['geometri'] || 1, maxLevel: 5, color: 'emerald', locked: (topicLevels['aljabar'] || 1) < 5 },
-                                    { id: 'trigonometri', title: 'Trigonometri', icon: '📏', level: topicLevels['trigonometri'] || 1, maxLevel: 5, color: 'violet', locked: (topicLevels['geometri'] || 1) < 5 }
+                                    {
+                                        id: 'aljabar',
+                                        title: 'Aljabar',
+                                        icon: '📐',
+                                        level: topicLevels['aljabar'] || 1,
+                                        maxLevel: 5,
+                                        description: 'Penguasaan variabel dan logika persamaan linear tingkat lanjut.',
+                                        visualBg: 'x + y = z'
+                                    },
+                                    {
+                                        id: 'geometri',
+                                        title: 'Geometri',
+                                        icon: '🔺',
+                                        level: topicLevels['geometri'] || 1,
+                                        maxLevel: 5,
+                                        locked: (topicLevels['aljabar'] || 1) < 5,
+                                        description: 'Kaidah Euler & Volume Bangun Ruang.',
+                                        visualBg: 'S + T = R + 2'
+                                    },
+                                    {
+                                        id: 'trigonometri',
+                                        title: 'Trigonometri',
+                                        icon: '📏',
+                                        level: topicLevels['trigonometri'] || 1,
+                                        maxLevel: 5,
+                                        locked: (topicLevels['geometri'] || 1) < 5,
+                                        description: 'Rasio Sinus, Cosinus, Tangen & Elevasi.',
+                                        visualBg: 'SinDemi • KosSami'
+                                    }
                                 ].map((topic) => {
                                     const isMastered = topic.level > topic.maxLevel;
                                     const progress = Math.min(((topic.level - 1) / 5) * 100, 100);
@@ -533,56 +557,67 @@ export default function DashboardPage() {
                                             disabled={topic.locked}
                                             onClick={() => {
                                                 if (!topic.locked) {
-                                                    setSelectedTopic(topic.id);
-                                                    setView('TOPIC_MASTER');
+                                                    handleTopicClick(topic.id);
                                                 }
                                             }}
-                                            className={`group relative p-8 rounded-[2.5rem] border transition-all duration-300 text-left overflow-hidden
+                                            className={`group relative p-8 rounded-[3rem] border transition-all duration-300 text-left overflow-hidden h-full flex flex-col
                                                 ${topic.locked
-                                                    ? 'bg-slate-50 border-slate-100 opacity-60 cursor-not-allowed grayscale'
-                                                    : 'bg-white border-slate-100 hover:border-blue-300 hover:shadow-[0_20px_50px_-12px_rgba(37,99,235,0.2)] hover:-translate-y-1 shadow-[0_10px_30px_rgba(0,0,0,0.02)]'
+                                                    ? 'bg-slate-100 border-slate-200 opacity-60 cursor-not-allowed grayscale'
+                                                    : 'bg-[#020617] border-blue-500/30 shadow-[0_0_30px_rgba(59,130,246,0.15)] hover:border-blue-400 hover:shadow-[0_0_50px_rgba(59,130,246,0.25)] hover:-translate-y-2'
                                                 }
                                             `}
                                         >
-                                            <div className="flex items-center justify-between mb-8 relative z-10">
-                                                <div className={`w-16 h-16 rounded-3xl flex items-center justify-center text-3xl shadow-sm transition-transform group-hover:scale-110 duration-500
-                                                    ${topic.locked ? 'bg-slate-100 text-slate-400' : 'bg-gradient-to-br from-white to-blue-50 text-blue-600 shadow-blue-100'}
-                                                `}>
-                                                    {topic.icon}
-                                                </div>
-                                                {isMastered && (
-                                                    <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-lg border-4 border-white shadow-lg shadow-emerald-100 animate-in zoom-in duration-300">
-                                                        ✓
-                                                    </div>
-                                                )}
-                                                {topic.locked && (
-                                                    <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center text-sm border-4 border-white">
-                                                        🔒
-                                                    </div>
-                                                )}
-                                            </div>
+                                            <div className={`relative w-full h-32 mb-6 rounded-3xl flex items-center justify-center text-6xl shadow-inner transition-transform group-hover:scale-105 duration-500 overflow-hidden
+                                                ${topic.locked ? 'bg-slate-900/50 text-slate-700' : 'bg-slate-950 border border-blue-500/20 text-white shadow-[inset_0_0_20px_rgba(59,130,246,0.1)]'}
+                                            `}>
+                                                <span className="relative z-10 filter drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]">{topic.icon}</span>
 
-                                            <div className="relative z-10">
-                                                <h3 className={`text-2xl font-black mb-2 ${topic.locked ? 'text-slate-400' : 'text-blue-900 group-hover:text-blue-700 transition-colors'}`}>
+                                                {/* Visual Background Text for Curriculum */}
+                                                {!topic.locked && (
+                                                    <div className="absolute inset-0 flex items-center justify-center opacity-10 select-none pointer-events-none">
+                                                        <span className="text-xl font-black text-blue-400 whitespace-nowrap transform -rotate-12">{topic.visualBg}</span>
+                                                    </div>
+                                                )}
+
+                                            </div>
+                                            {isMastered && (
+                                                <div className="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-lg border border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.3)] animate-in zoom-in duration-300">
+                                                    ✓
+                                                </div>
+                                            )}
+                                            {topic.locked && (
+                                                <div className="w-10 h-10 rounded-full bg-slate-200 text-slate-400 flex items-center justify-center text-sm border-4 border-white">
+                                                    🔒
+                                                </div>
+                                            )}
+
+                                            <div className="relative z-10 flex-1">
+                                                <h3 className={`text-2xl font-black mb-2 ${topic.locked ? 'text-slate-400' : 'text-white group-hover:text-blue-400 transition-colors'}`}>
                                                     {topic.title}
                                                 </h3>
-                                                <div className="flex items-center gap-3">
-                                                    <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                                <p className="text-sm text-slate-400 font-medium mb-6 leading-relaxed line-clamp-2">
+                                                    {topic.description}
+                                                </p>
+
+                                                <div className="flex items-center gap-3 mt-auto">
+                                                    <div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden">
                                                         <div
-                                                            className={`h-full rounded-full transition-all duration-1000 ${topic.locked ? 'bg-slate-300' : 'bg-blue-500'}`}
+                                                            className={`h-full rounded-full transition-all duration-1000 ${topic.locked ? 'bg-slate-300' : isMastered ? 'bg-emerald-500' : 'bg-blue-600'}`}
                                                             style={{ width: `${isMastered ? 100 : progress}%` }}
                                                         ></div>
                                                     </div>
-                                                    <span className="text-sm font-bold text-slate-400">
+                                                    <span className={`text-sm font-bold ${isMastered ? 'text-emerald-500' : 'text-slate-500'}`}>
                                                         Lvl {topic.level > 5 ? 'Max' : topic.level}
                                                     </span>
                                                 </div>
                                             </div>
 
                                             {/* Decor */}
-                                            {!topic.locked && (
-                                                <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-blue-500/5 rounded-full blur-3xl group-hover:bg-blue-500/10 transition-colors duration-500"></div>
-                                            )}
+                                            {
+                                                !topic.locked && (
+                                                    <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-blue-600/10 rounded-full blur-3xl group-hover:bg-blue-600/20 transition-colors duration-500"></div>
+                                                )
+                                            }
                                         </button>
                                     );
                                 })}
@@ -591,15 +626,23 @@ export default function DashboardPage() {
 
                         {/* 3. Analytics */}
                         <section className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                            <div className="lg:col-span-8 bg-white rounded-[2.5rem] p-8 shadow-[0_10px_30px_rgba(0,0,0,0.02)] border border-slate-50">
+                            <div className="lg:col-span-8 bg-[#020617] rounded-[2.5rem] p-8 shadow-[0_0_30px_rgba(59,130,246,0.15)] border border-blue-500/30">
                                 <div className="flex items-center justify-between mb-8">
-                                    <h3 className="text-lg font-black text-slate-900 uppercase tracking-wide">Growth Analytics</h3>
-                                    <button className="text-xs font-bold text-slate-400 uppercase tracking-widest hover:text-blue-600">View Full Report</button>
+                                    <h3 className="text-lg font-black text-white uppercase tracking-wide flex items-center gap-2">
+                                        <span className="text-blue-500">📊</span> Growth Analytics
+                                    </h3>
+                                    <button className="text-xs font-bold text-blue-400 uppercase tracking-widest hover:text-blue-300 shadow-[0_0_10px_rgba(59,130,246,0.3)]">View Full Report</button>
                                 </div>
                                 <div className="h-64 w-full">
                                     <ResponsiveContainer width="100%" height="100%">
                                         <BarChart data={chartData}>
-                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                            <defs>
+                                                <linearGradient id="xpGradient" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="0%" stopColor="#38bdf8" stopOpacity={1} />
+                                                    <stop offset="100%" stopColor="#6366f1" stopOpacity={1} />
+                                                </linearGradient>
+                                            </defs>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1e293b" />
                                             <XAxis
                                                 dataKey="name"
                                                 axisLine={false}
@@ -609,33 +652,29 @@ export default function DashboardPage() {
                                             />
                                             <YAxis hide />
                                             <Tooltip
-                                                cursor={{ fill: '#f8fafc', radius: 8 }}
-                                                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 30px rgba(0,0,0,0.1)' }}
+                                                cursor={{ fill: '#0f172a', radius: 8 }}
+                                                contentStyle={{ borderRadius: '12px', border: '1px solid rgba(59,130,246,0.3)', backgroundColor: '#020617', color: '#fff', boxShadow: '0 0 20px rgba(59,130,246,0.2)' }}
                                             />
-                                            <Bar dataKey="xp" radius={[6, 6, 6, 6]} barSize={32}>
-                                                {chartData.map((entry, index) => (
-                                                    <Cell key={`cell-${index}`} fill={'#2563eb'} />
-                                                ))}
-                                            </Bar>
+                                            <Bar dataKey="xp" radius={[6, 6, 6, 6]} barSize={32} fill="url(#xpGradient)" />
                                         </BarChart>
                                     </ResponsiveContainer>
                                 </div>
                             </div>
 
-                            <div className="lg:col-span-4 bg-blue-600 rounded-[2.5rem] p-8 text-white relative overflow-hidden flex flex-col justify-end min-h-[300px]">
+                            <div className="lg:col-span-4 bg-slate-900 rounded-[2.5rem] p-8 text-white relative overflow-hidden flex flex-col justify-end min-h-[300px] shadow-2xl shadow-slate-900/20">
                                 <div className="relative z-10">
                                     <div className="text-6xl font-black mb-2 opacity-90">1</div>
-                                    <div className="text-sm font-bold uppercase tracking-widest opacity-80 mb-6">Current Rank</div>
-                                    <p className="font-medium text-lg leading-tight">Pertahankan posisimu di puncak leaderboard minggu ini!</p>
+                                    <div className="text-sm font-bold uppercase tracking-widest opacity-60 mb-6">Current Rank</div>
+                                    <p className="font-medium text-lg leading-tight text-slate-300">Pertahankan posisimu di puncak leaderboard minggu ini!</p>
                                 </div>
-                                <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full blur-3xl -mr-12 -mt-12"></div>
-                                <svg className="absolute bottom-8 right-8 w-24 h-24 text-white/10" viewBox="0 0 24 24" fill="currentColor"><path d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
+                                <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full blur-3xl -mr-12 -mt-12"></div>
+                                <svg className="absolute bottom-8 right-8 w-24 h-24 text-white/5 animate-pulse" viewBox="0 0 24 24" fill="currentColor"><path d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
                             </div>
                         </section>
                     </>
                 )}
 
-                {/* 4. Placeholder Views for Other Tabs (To make buttons feel active) */}
+                {/* 4. Other Views Logic preserved but hidden for brevity... matched existing logic structure */}
                 {view === 'STATS' && (
                     <StatisticDetail
                         user={user}
@@ -671,12 +710,12 @@ export default function DashboardPage() {
                     </div>
                 )}
 
-                {/* 5. Floating Nav (Active State Logic) */}
+                {/* 5. Floating Nav (Midnight Slate) */}
                 <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50">
-                    <nav className="bg-[#0F172A] text-white p-2 rounded-full shadow-2xl shadow-slate-900/40 flex items-center gap-1">
+                    <nav className="bg-slate-900/95 backdrop-blur-md text-white p-2 rounded-full shadow-2xl shadow-slate-900/40 flex items-center gap-1 border border-white/10 ring-1 ring-black/20">
                         <button
                             onClick={() => setView('DASHBOARD')}
-                            className={`flex flex-col items-center justify-center w-16 h-12 rounded-full transition-all duration-300 ${view === 'DASHBOARD' ? 'bg-white/20 text-white translate-y-[-2px]' : 'hover:bg-white/10 text-slate-400'}`}
+                            className={`flex flex-col items-center justify-center w-16 h-12 rounded-full transition-all duration-300 ${view === 'DASHBOARD' ? 'bg-white/10 text-white shadow-[0_0_15px_rgba(255,255,255,0.4)] border border-white/20 translate-y-[-2px]' : 'hover:bg-white/5 text-slate-400'}`}
                         >
                             <span className="text-xl">🏠</span>
                             <span className="text-[8px] font-bold uppercase tracking-widest mt-0.5">Home</span>
@@ -684,7 +723,7 @@ export default function DashboardPage() {
 
                         <button
                             onClick={() => setView('STATS')}
-                            className={`flex flex-col items-center justify-center w-16 h-12 rounded-full transition-all duration-300 ${view === 'STATS' ? 'bg-white/20 text-white translate-y-[-2px]' : 'hover:bg-white/10 text-slate-400'}`}
+                            className={`flex flex-col items-center justify-center w-16 h-12 rounded-full transition-all duration-300 ${view === 'STATS' ? 'bg-white/10 text-white shadow-[0_0_15px_rgba(255,255,255,0.4)] border border-white/20 translate-y-[-2px]' : 'hover:bg-white/5 text-slate-400'}`}
                         >
                             <span className="text-xl">📈</span>
                             <span className="text-[8px] font-bold uppercase tracking-widest mt-0.5">Stats</span>
@@ -692,7 +731,7 @@ export default function DashboardPage() {
 
                         <button
                             onClick={() => setView('PROFILE')}
-                            className={`flex flex-col items-center justify-center w-16 h-12 rounded-full transition-all duration-300 ${view === 'PROFILE' ? 'bg-white/20 text-white translate-y-[-2px]' : 'hover:bg-white/10 text-slate-400'}`}
+                            className={`flex flex-col items-center justify-center w-16 h-12 rounded-full transition-all duration-300 ${view === 'PROFILE' ? 'bg-white/10 text-white shadow-[0_0_15px_rgba(255,255,255,0.4)] border border-white/20 translate-y-[-2px]' : 'hover:bg-white/5 text-slate-400'}`}
                         >
                             <span className="text-xl">👤</span>
                             <span className="text-[8px] font-bold uppercase tracking-widest mt-0.5">Profile</span>
