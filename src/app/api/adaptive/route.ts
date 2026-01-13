@@ -147,21 +147,49 @@ export async function POST(req: Request) {
     // 3. API CALL WITH SMART FALLBACK
     // ============================================
     // 3. Fallback / Static Curriculum Check (BEFORE API CALL)
-    // Check if we have static curriculum for this topic/level
-    const staticContent = ExpertSystem.getCurriculumContent(topic as string, currentLevel);
-    if (staticContent && mode === 'TEACH') {
-        const { ALJABAR_CURRICULUM } = require('@/lib/curriculumData'); // Dynamic import to avoid cycles if any
-        const levelData = ALJABAR_CURRICULUM[currentLevel];
+    // 3. Fallback / Static Curriculum Check (BEFORE API CALL)
 
-        return NextResponse.json({
-            explanation: staticContent.explanation,
-            content: levelData.content,
-            contentVisual: levelData.contentVisual,
-            contentAuditory: levelData.contentAuditory,
-            contentKinesthetic: levelData.contentKinesthetic,
-            quiz: levelData.quiz, // Return the structured quiz directly
-            isOffline: false // Treat as valid online content
-        });
+    // A. ALJABAR (Static File)
+    if (topic.toLowerCase() === 'aljabar') {
+        const { ALJABAR_CURRICULUM } = require('@/lib/curriculumData');
+        const levelData = ALJABAR_CURRICULUM[currentLevel];
+        if (levelData && mode !== 'REPORT') {
+            return NextResponse.json({
+                explanation: levelData.content, // Default to content as explanation base
+                content: levelData.content,
+                contentVisual: levelData.contentVisual,
+                contentAuditory: levelData.contentAuditory,
+                contentKinesthetic: levelData.contentKinesthetic,
+                quiz: levelData.quiz,
+                isOffline: false
+            });
+        }
+    }
+
+    // B. GEOMETRI & TRIGONOMETRI (Static File - Turbo Mode)
+    if (['geometri', 'trigonometri'].includes(topic.toLowerCase())) {
+        const { GEOMETRI_CURRICULUM, TRIGONOMETRI_CURRICULUM } = require('@/lib/curriculumExpansion');
+        const targetCurriculum = topic.toLowerCase().includes('geometri') ? GEOMETRI_CURRICULUM : TRIGONOMETRI_CURRICULUM;
+        const levelData = targetCurriculum[currentLevel];
+
+        if (levelData) {
+            console.log(`✅ Loaded Static ${topic} Level ${currentLevel}`);
+            return NextResponse.json({
+                explanation: levelData.content,
+                content: levelData.content,
+                contentVisual: levelData.contentVisual || levelData.content,
+                contentAuditory: levelData.contentAuditory || levelData.content,
+                contentKinesthetic: levelData.contentKinesthetic || levelData.content,
+                quiz: levelData.quiz || [],
+                isOffline: false
+            });
+        }
+    }
+
+    // C. OLD STATIC CHECK (Deprecated or fallback)
+    const staticContent = ExpertSystem.getCurriculumContent(topic as string, currentLevel);
+    if (staticContent && mode === 'TEACH' && topic === 'aljabar') { // Redundant but safe
+        // ... handled above
     }
 
     try {

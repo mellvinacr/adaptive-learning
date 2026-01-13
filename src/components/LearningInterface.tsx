@@ -12,6 +12,7 @@ import { collection, getDocs, query, orderBy, doc, setDoc, getDoc, where, addDoc
 import { signInAnonymously, onAuthStateChanged, User } from 'firebase/auth';
 import { useAPIStatus } from '@/context/APIStatusContext';
 import { ALJABAR_CURRICULUM } from '@/lib/curriculumData';
+import { GEOMETRI_CURRICULUM, TRIGONOMETRI_CURRICULUM } from '@/lib/curriculumExpansion';
 
 // Types
 type Phase = 'LEARNING' | 'QUIZ' | 'SENTIMENT' | 'RESULT';
@@ -30,6 +31,7 @@ interface QuizItem {
     question: string;
     options: string[];
     correctAnswer: number;
+    explanation?: string;
 }
 
 interface EvaluationResult {
@@ -152,20 +154,26 @@ export default function LearningInterface({ initialLevel = 1, learningStyle = 'T
         const fetchWelcome = async () => {
             if (!topic) return;
 
-            // 1. STATIC ALJABAR CURRICULUM (Direct & Fast)
-            if (topic.toLowerCase().includes('aljabar') && ALJABAR_CURRICULUM[level]) {
-                const data = ALJABAR_CURRICULUM[level];
+            // 1. STATIC CURRICULUM (Turbo Mode)
+            // Checks Aljabar, Geometri, Trigonometri locally
+            let staticData = null;
+            if (topic.toLowerCase().includes('aljabar')) staticData = ALJABAR_CURRICULUM[level];
+            else if (topic.toLowerCase().includes('geometri')) staticData = GEOMETRI_CURRICULUM[level];
+            else if (topic.toLowerCase().includes('trigonometri')) staticData = TRIGONOMETRI_CURRICULUM[level];
+
+            if (staticData) {
+                const data = staticData;
 
                 // SELECT CONTENT BASED ON LEARNING STYLE
                 let selectedContent = data.content;
                 if (learningStyle === 'VISUAL' && data.contentVisual) selectedContent = data.contentVisual;
                 else if (learningStyle === 'AUDITORY' && data.contentAuditory) selectedContent = data.contentAuditory;
                 else if (learningStyle === 'KINESTHETIC' && data.contentKinesthetic) selectedContent = data.contentKinesthetic;
-                else if (data.contentVisual) selectedContent = data.contentVisual;
+                else if (data.contentVisual) selectedContent = data.contentVisual; // Fallback if general content is weak
 
                 const staticFragment: Fragment = {
                     id: `static-${level}`,
-                    title: `Materi Lumi Level ${level}`,
+                    title: data.title || `Materi ${topic} Level ${level}`,
                     text: selectedContent,
                     content: selectedContent,
                     type: 'text',
@@ -173,11 +181,10 @@ export default function LearningInterface({ initialLevel = 1, learningStyle = 'T
                 };
 
                 setFragments([staticFragment]);
-                setQuizzes(data.quiz.map((q: any, i: number) => ({ ...q, id: `static-q-${i}` }))); // FORCE SYNC QUIZ WITH LEVEL
+                setQuizzes(data.quiz.map((q: any, i: number) => ({ ...q, id: `static-q-${i}` })));
                 setLoading(false);
 
                 if (learningStyle === 'AUDITORY') {
-                    // Slight delay for smoother UX
                     setTimeout(() => handleSpeak(selectedContent.substring(0, 300) + "..."), 1000);
                 }
                 return;
@@ -214,6 +221,10 @@ export default function LearningInterface({ initialLevel = 1, learningStyle = 'T
 
     const fetchData = async (uid: string, currentLevel: number) => {
         // Guard: If fragments are already loaded (e.g. by Static Curriculum), skip Firestore
+        // STRICT GUARD for Static Topics:
+        // Do NOT attempt Firestore fetch for these, trust fetchWelcome()
+        if (['aljabar', 'geometri', 'trigonometri'].some(t => topic?.toLowerCase().includes(t))) return;
+
         if (fragments.length > 0) return;
 
         setLoading(true);
@@ -1035,26 +1046,42 @@ $$ \\text{Sukses} = \\text{Usaha} + \\text{Konsistensi} $$
                                     {isPassed ? (
                                         level >= 5 ? (
                                             // CASE: KAMPION MATEMATIKA (Level 5 Passed)
-                                            <>
-                                                <div className="w-full bg-emerald-100 border-2 border-emerald-400 p-4 rounded-xl text-emerald-800 mb-4 text-center animate-bounce shadow-lg">
-                                                    <h3 className="font-black text-xl mb-1">👑 KAMPION MATEMATIKA!</h3>
-                                                    <p className="text-sm font-medium">Lumi bangga sekali padamu! Kamu sudah menaklukkan seluruh tantangan {topic} dengan hebat!</p>
-                                                </div>
+                                            (() => {
+                                                let nextTarget = 'dashboard';
+                                                let nextLabel = 'KEMBALI KE DASHBOARD 🏠';
 
-                                                <button
-                                                    onClick={() => onSessionComplete && onSessionComplete({
-                                                        success: true,
-                                                        nextLevel: 6, // Mastery
-                                                        emotion: sentiment,
-                                                        decision: 'NEXT_TOPIC',
-                                                        action: 'SWITCH_TOPIC',
-                                                        target: 'Geometri' // Hardcoded for Aljabar flow
-                                                    })}
-                                                    className="w-full py-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-2xl font-bold shadow-xl shadow-purple-200 hover:scale-105 transition-all text-lg"
-                                                >
-                                                    LANJUT KE GEOMETRI 📐
-                                                </button>
-                                            </>
+                                                if (topic?.toLowerCase().includes('aljabar')) {
+                                                    nextTarget = 'Geometri';
+                                                    nextLabel = 'LANJUT KE GEOMETRI 📐';
+                                                } else if (topic?.toLowerCase().includes('geometri')) {
+                                                    nextTarget = 'Trigonometri';
+                                                    nextLabel = 'LANJUT KE TRIGONOMETRI 📐';
+                                                }
+
+                                                return (
+                                                    <>
+                                                        <div className="w-full bg-emerald-100 border-2 border-emerald-400 p-4 rounded-xl text-emerald-800 mb-4 text-center animate-bounce shadow-lg">
+                                                            <h3 className="font-black text-xl mb-1">👑 KAMPION MATEMATIKA!</h3>
+                                                            <p className="text-sm font-medium">Lumi bangga sekali padamu! Kamu sudah menaklukkan seluruh tantangan {topic} dengan hebat!</p>
+                                                        </div>
+
+                                                        <button
+                                                            onClick={() => onSessionComplete && onSessionComplete({
+                                                                success: true,
+                                                                nextLevel: 6, // Mastery
+                                                                emotion: sentiment,
+                                                                decision: 'NEXT_TOPIC',
+                                                                action: 'SWITCH_TOPIC',
+                                                                target: nextTarget
+                                                            })}
+                                                            className="w-full py-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-2xl font-bold shadow-xl shadow-purple-200 hover:scale-105 transition-all text-lg"
+                                                            disabled={nextTarget === 'dashboard'} // Optional: disable if just dashboard, forcing use of bottom button? No, allow it.
+                                                        >
+                                                            {nextLabel}
+                                                        </button>
+                                                    </>
+                                                );
+                                            })()
                                         ) : (
                                             // Case: High Score (>80%) - Normal Level
                                             isAnxious ? (

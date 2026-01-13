@@ -369,11 +369,13 @@ export default function DashboardPage() {
 
                                 // HANDLE TOPIC SWITCH (e.g. Aljabar -> Geometri)
                                 if (result.action === 'SWITCH_TOPIC' && result.target) {
-                                    setSelectedTopic(result.target);
-                                    // Reset View to LEARNING to start new topic immediately? Or TOPIC_MASTER?
-                                    // User asked for "Navigasi Next Topic".
-                                    // Let's go to TOPIC_MASTER of the new topic to let them choose level 1.
-                                    setView('TOPIC_MASTER');
+                                    if (result.target === 'dashboard') {
+                                        setView('DASHBOARD');
+                                    } else {
+                                        setSelectedTopic(result.target);
+                                        // Let's go to TOPIC_MASTER of the new topic to let them choose level 1.
+                                        setView('TOPIC_MASTER');
+                                    }
                                 } else {
                                     setView('TOPIC_MASTER');
                                 }
