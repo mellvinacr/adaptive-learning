@@ -471,7 +471,6 @@ export default function DashboardPage() {
                                 <div className="text-center md:text-left flex-1">
                                     <div className="flex flex-col md:flex-row items-center gap-4 mb-2">
                                         <h1 className="text-4xl font-black text-white tracking-tight drop-shadow-[0_0_10px_rgba(59,130,246,0.5)]">{profile?.name || user?.displayName || 'Siswa Kampion'}</h1>
-                                        <span className="px-4 py-1.5 rounded-full bg-blue-950/50 text-blue-400 text-[10px] font-bold uppercase tracking-widest border border-blue-500/30 shadow-[0_0_10px_rgba(59,130,246,0.2)]">Premium Student</span>
                                     </div>
                                     <p className="text-blue-100/80 font-medium text-lg mb-8 max-w-2xl">
                                         Siap melanjutkan petualangan matematikamu hari ini?

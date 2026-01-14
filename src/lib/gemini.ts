@@ -12,9 +12,10 @@ console.log("Initializing Gemini with key:", apiKey ? "Present" : "Missing");
 
 // Configure with token limits to avoid quota issues
 export const model = genAI.getGenerativeModel({
-    model: "gemini-2.5-flash",
+    model: "gemini-1.5-flash", // Gunakan 1.5-flash yang lebih stabil untuk Free Tier
     generationConfig: {
-        maxOutputTokens: 2000,//alanced: complete response but not excessive
-        temperature: 0.7//anced creativity
+        maxOutputTokens: 1000, // 1000 sudah sangat cukup untuk penjelasan materi & kuis
+        temperature: 0.7,
+        topP: 0.95,
     }
 });
