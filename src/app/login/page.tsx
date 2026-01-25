@@ -242,7 +242,7 @@ export default function LoginPage() {
                 </div>
 
                 <div className="mt-8 pt-6 border-t border-gray-100 text-xs text-center text-gray-400">
-                    Adaptive Learning Platform V2
+                    MathFlow V2
                 </div>
             </div>
         </div>

@@ -1,3 +1,14 @@
+export interface CurriculumLevel {
+    title: string;
+    content: string;
+    quiz: {
+        question: string;
+        options: string[];
+        correctAnswer: number; // Index 0-based
+        explanation: string;
+    }[];
+}
+
 export const GEOMETRI_CURRICULUM: Record<number, any> = {
     1: {
         id: 1,

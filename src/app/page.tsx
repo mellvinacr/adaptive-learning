@@ -22,7 +22,7 @@ export default function Home() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-white">
       <div className="text-center animate-pulse">
-        <h1 className="text-2xl font-bold text-emerald-600 mb-2">Adaptive Learning System</h1>
+        <h1 className="text-2xl font-bold text-emerald-600 mb-2">MathFlow</h1>
         <p className="text-gray-400">Loading...</p>
       </div>
     </div>

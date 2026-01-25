@@ -160,13 +160,38 @@ export default function StatisticDetail({ user, onBack, onNavigate }: StatisticD
 
         // 4. Generate AI Insight
         if (data.length > 0) {
-            generateInsight(radarData, lineData, topicLevels, dominantStyle, totalHours);
+            const latestTimestamp = data[0].timestamp ? data[0].timestamp.seconds * 1000 : 0;
+            generateInsight(radarData, lineData, topicLevels, dominantStyle, totalHours, latestTimestamp);
         }
     };
 
+    // Refactored Generator to Support Cache Saving
+    const generateInsight = async (eData: any[], tData: any[], topicLevels: Record<string, number>, domStyle: string, totalHrs: string, latestSessionTime: number, forceRefresh = false) => {
+        // Validation: If already loading, skip
+        if (insightLoading) return;
 
+        const CACHE_KEY = `lumi_insight_${user?.uid}`;
 
-    const generateInsight = async (eData: any[], tData: any[], topicLevels: Record<string, number>, domStyle: string, totalHrs: string) => {
+        // SMART CHECK inside the generator (if called directly)
+        if (!forceRefresh) {
+            const cachedRaw = localStorage.getItem(CACHE_KEY);
+            if (cachedRaw) {
+                const cache = JSON.parse(cachedRaw);
+                const cacheTime = cache.timestamp || 0;
+
+                // Comparing: Is Cache created AFTER the latest session?
+                // If CacheTime > LatestSessionTime => Cache contains the latest "knowledge".
+                if (cacheTime > latestSessionTime) {
+                    console.log("⚡ [CACHE HIT] Insight is fresh. Using local storage.");
+                    setAiInsight(cache.data);
+                    setIsOffline(cache.isOffline);
+                    setInsightLoading(false);
+                    return;
+                }
+                console.log("🔄 [REFRESH] New session detected since last cache. Regenerating...");
+            }
+        }
+
         setInsightLoading(true);
         setDominantStyle(domStyle);
         setTotalStudyHours(totalHrs);
@@ -223,11 +248,29 @@ NADA: Sangat Detail, Profesional, Empatik, dan Menginspirasi. DILARANG MEMBERIKA
             if (json.explanation) {
                 setAiInsight(json.explanation);
                 setIsOffline(json.isOffline || false);
+
+                // SAVE TO CACHE
+                const cacheData = {
+                    data: json.explanation,
+                    timestamp: Date.now(), // Save "Now" as the generation time
+                    isOffline: json.isOffline || false
+                };
+                localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
             }
         } catch (e) {
             console.error("AI Insight gagal:", e);
-            setAiInsight(`### 📦 Analisis Progres Lokal\nLumi saat ini sedang mengkalibrasi data besar, namun berdasarkan catatan lokal, dedikasi belajarmu selama **${totalHrs} jam** pada materi **${topicSummary}** menunjukkan potensi besar untuk menjadi ahli matematika!`);
+            const fallbackText = `### 📦 Analisis Progres Lokal\nLumi saat ini sedang mengkalibrasi data besar, namun berdasarkan catatan lokal, dedikasi belajarmu selama **${totalHrs} jam** pada materi **${topicSummary}** menunjukkan potensi besar untuk menjadi ahli matematika!`;
+            setAiInsight(fallbackText);
             setIsOffline(true);
+            // Verify if we should cache fallback? Maybe not, to allow retry.
+            // But for PDF reliability, caching fallback is better than nothing.
+            const cacheData = {
+                data: fallbackText,
+                timestamp: Date.now(),
+                isOffline: true
+            };
+            localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
+
         } finally {
             setInsightLoading(false);
         }
@@ -569,15 +612,29 @@ NADA: Sangat Detail, Profesional, Empatik, dan Menginspirasi. DILARANG MEMBERIKA
 
                     {/* Text Content */}
                     <div className="flex-1">
-                        <div className="mb-6">
-                            <h3 className={`text-3xl font-black mb-2 ${isOffline ? 'text-slate-700' : 'text-blue-50 tracking-tight drop-shadow-[0_0_10px_rgba(59,130,246,0.5)]'}`}>
-                                {isOffline ? 'Lumi Sedang Istirahat...' : 'Lumi Smart Insights'}
-                            </h3>
-                            <p className={`text-sm font-bold uppercase tracking-widest opacity-60 ${isOffline ? 'text-slate-500' : 'text-blue-300'}`}>
-                                {isOffline
-                                    ? 'Cek koneksi internetmu untuk analisis real-time.'
-                                    : 'Analisis Emosi & Strategi Belajar Personal'}
-                            </p>
+                        <div className="mb-6 flex items-start justify-between">
+                            <div>
+                                <h3 className={`text-3xl font-black mb-2 ${isOffline ? 'text-slate-700' : 'text-blue-50 tracking-tight drop-shadow-[0_0_10px_rgba(59,130,246,0.5)]'}`}>
+                                    {isOffline ? 'Lumi Sedang Istirahat...' : 'Lumi Smart Insights'}
+                                </h3>
+                                <p className={`text-sm font-bold uppercase tracking-widest opacity-60 ${isOffline ? 'text-slate-500' : 'text-blue-300'}`}>
+                                    {isOffline
+                                        ? 'Cek koneksi internetmu untuk analisis real-time.'
+                                        : 'Analisis Emosi & Strategi Belajar Personal'}
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => {
+                                    if (emotionData.length > 0 && trendData.length > 0) {
+                                        const latestTimestamp = sessions.length > 0 && sessions[0].timestamp ? sessions[0].timestamp.seconds * 1000 : 0;
+                                        generateInsight(emotionData, trendData, topicMastery, dominantStyle, totalStudyHours, latestTimestamp, true);
+                                    }
+                                }}
+                                disabled={insightLoading}
+                                className="px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-xs font-bold text-white uppercase tracking-widest transition-all flex items-center gap-2"
+                            >
+                                🔄 Refresh Analysis
+                            </button>
                         </div>
 
                         <div className={`prose max-w-none text-lg leading-loose rounded-3xl p-8 backdrop-blur-sm border
